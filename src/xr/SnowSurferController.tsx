@@ -1,0 +1,200 @@
+import { useFrame, useThree } from '@react-three/fiber'
+import { useXR } from '@react-three/xr'
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import type { SpellEffect } from '../experiments/SpellManager'
+
+interface SnowSurferControllerProps {
+  readonly activeSpell: SpellEffect
+  readonly onBrushUpdate: (
+    pos: THREE.Vector3,
+    depth: number,
+    berm: number,
+    ice: number,
+    wetness: number
+  ) => void
+  readonly followCamera?: boolean
+}
+
+export function SnowSurferController({
+  activeSpell,
+  onBrushUpdate,
+  followCamera = true,
+}: SnowSurferControllerProps) {
+  const { camera } = useThree()
+  const session = useXR((state) => state.session)
+  
+  // Character Physics State
+  const position = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
+  const velocity = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
+  const heading = useRef<number>(0) // Yaw angle in radians
+  const bankRoll = useRef<number>(0) // Roll angle for turning lean
+
+  // Key States
+  const keys = useRef<{
+    forward: boolean
+    backward: boolean
+    left: boolean
+    right: boolean
+    boost: boolean
+  }>({
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    boost: false,
+  })
+
+  const characterGroupRef = useRef<THREE.Group>(null)
+  const boardGroupRef = useRef<THREE.Group>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.current.forward = true
+      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.current.backward = true
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.current.left = true
+      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.current.right = true
+      if (e.key === ' ') keys.current.boost = true
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.current.forward = false
+      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.current.backward = false
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.current.left = false
+      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.current.right = false
+      if (e.key === ' ') keys.current.boost = false
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    // 1. Steering & Acceleration Logic
+    const turnSpeed = 2.4 * delta
+    const maxSpeed = keys.current.boost ? 22.0 : 14.0
+    const accelRate = (keys.current.boost ? 25.0 : 16.0) * delta
+    const friction = 0.94
+
+    let targetBank = 0
+
+    if (keys.current.left) {
+      heading.current += turnSpeed
+      targetBank = -0.35 // Lean left
+    }
+    if (keys.current.right) {
+      heading.current -= turnSpeed
+      targetBank = 0.35 // Lean right
+    }
+
+    // Smooth leaning interpolation
+    bankRoll.current += (targetBank - bankRoll.current) * 8.0 * delta
+
+    // Forward/Backward acceleration
+    const moveDir = new THREE.Vector3(
+      Math.sin(heading.current),
+      0,
+      Math.cos(heading.current)
+    )
+
+    if (keys.current.forward) {
+      velocity.current.addScaledVector(moveDir, accelRate)
+    } else if (keys.current.backward) {
+      velocity.current.addScaledVector(moveDir, -accelRate * 0.5)
+    }
+
+    // Apply friction and clamp speed
+    velocity.current.multiplyScalar(friction)
+    if (velocity.current.length() > maxSpeed) {
+      velocity.current.setLength(maxSpeed)
+    }
+
+    // Update 3D position (keep within 120m terrain bounds)
+    position.current.addScaledVector(velocity.current, delta)
+    position.current.x = THREE.MathUtils.clamp(position.current.x, -55, 55)
+    position.current.z = THREE.MathUtils.clamp(position.current.z, -55, 55)
+
+    const speed = velocity.current.length()
+
+    // 2. Character Mesh Placement & Leaning
+    if (characterGroupRef.current) {
+      characterGroupRef.current.position.copy(position.current)
+      characterGroupRef.current.rotation.y = heading.current
+    }
+    if (boardGroupRef.current) {
+      boardGroupRef.current.rotation.z = bankRoll.current
+    }
+
+    // 3. Continuous Snow Carving into FBO State Buffer
+    if (speed > 0.5) {
+      const brushVec = new THREE.Vector3(
+        position.current.x,
+        position.current.z,
+        activeSpell.brushRadius * (1.0 + speed * 0.04)
+      )
+      
+      onBrushUpdate(
+        brushVec,
+        activeSpell.brushDepth * (0.8 + speed * 0.05),
+        activeSpell.brushBerm * (1.0 + Math.abs(bankRoll.current) * 1.5), // Carving hard turns piles higher side berms!
+        activeSpell.brushIce,
+        activeSpell.brushWetness
+      )
+    }
+
+    // 4. Smooth Third-Person Follow Camera (in Desktop / non-VR mode)
+    if (followCamera && session === undefined && speed > 0.2) {
+      const camOffset = new THREE.Vector3(
+        -Math.sin(heading.current) * 8.0,
+        4.5,
+        -Math.cos(heading.current) * 8.0
+      )
+      const targetCamPos = position.current.clone().add(camOffset)
+      camera.position.lerp(targetCamPos, 0.08)
+      camera.lookAt(position.current.x, 1.2, position.current.z)
+    }
+  })
+
+  return (
+    <group ref={characterGroupRef} position={[0, 0, 0]}>
+      {/* Dynamic Carving SSS Light under the board */}
+      <pointLight color={activeSpell.color} intensity={4.5} distance={8} decay={2} position={[0, 0.4, 0]} />
+
+      <group ref={boardGroupRef}>
+        {/* Snow Craft Board */}
+        <mesh position={[0, 0.1, 0]}>
+          <boxGeometry args={[0.5, 0.08, 2.2]} />
+          <meshStandardMaterial color="#1a202c" roughness={0.2} metalness={0.8} />
+        </mesh>
+
+        {/* Board Energy Deck Stripe */}
+        <mesh position={[0, 0.15, 0]}>
+          <boxGeometry args={[0.3, 0.02, 1.8]} />
+          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.0} />
+        </mesh>
+
+        {/* Third-Person Surfer Character Body */}
+        <mesh position={[0, 1.1, 0]}>
+          <capsuleGeometry args={[0.3, 0.8, 8, 16]} />
+          <meshStandardMaterial color="#2563eb" roughness={0.4} />
+        </mesh>
+
+        {/* Character Goggles / Headpiece */}
+        <mesh position={[0, 1.5, 0.2]}>
+          <sphereGeometry args={[0.22, 16, 16]} />
+          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={1.5} />
+        </mesh>
+      </group>
+
+      {/* Surfer Carving Contact Ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <ringGeometry args={[activeSpell.brushRadius * 0.7, activeSpell.brushRadius * 1.2, 32]} />
+        <meshBasicMaterial color={activeSpell.color} transparent opacity={0.6} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  )
+}

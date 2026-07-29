@@ -13,7 +13,7 @@ import { AVAILABLE_SPELLS, type SpellEffect } from './experiments/SpellManager'
 import { SnowTerrain } from './snow/SnowTerrain'
 import { DevOverlay } from './ui/DevOverlay'
 import { SpellBar } from './ui/SpellBar'
-import { ProceduralWand } from './xr/ProceduralWand'
+import { SnowSurferController } from './xr/SnowSurferController'
 import { xrStore } from './xr/store'
 
 export function App() {
@@ -40,13 +40,12 @@ export function App() {
       wetness: number
     ) => {
       setBrushPos(pos)
-      // Depress or build height when clicking/drawing or in VR
-      setBrushDepth(isMouseDown ? depth : 0)
+      setBrushDepth(depth)
       setBrushBerm(berm)
-      setBrushIce(isMouseDown ? ice : 0)
-      setBrushWetness(isMouseDown ? wetness : 0)
+      setBrushIce(ice)
+      setBrushWetness(wetness)
     },
-    [isMouseDown]
+    []
   )
 
   useEffect(() => {
@@ -85,12 +84,13 @@ export function App() {
     <div className="app-container">
       {/* Glassmorphic UI Overlays */}
       <header className="overlay-panel header-overlay">
-        <h1 className="header-title">SnowVR Engine</h1>
+        <h1 className="header-title">SnowVR Surfer Engine</h1>
         <p className="header-subtitle">
-          Vast 120m Arctic Terrain with Distant Alpine Peak Ring, Ice Spire Growth, Crater Shockwaves & Wet Slush Pools.
+          Speed around the 120m arctic snowfield with high-velocity banking, snow carving, and dynamic spell effects.
         </p>
         <p style={{ fontSize: '0.8rem', color: '#74d7ee' }}>
-          💡 <b>Left Click & Drag:</b> Cast Spell / Carve / Build | <b>Right Click & Drag:</b> Orbit Camera | <b>Keys 1-5:</b> Switch Spells
+          🏎️ <b>WASD / Arrows:</b> Speed & Steer Surfer | <b>Space:</b> Speed Boost <br />
+          🖱️ <b>Right Click & Drag:</b> Orbit Camera | <b>Keys 1-5:</b> Switch Spells
         </p>
         <button type="button" className="enter-vr-btn" onClick={enterVr}>
           <span>🥽</span> Enter VR
@@ -111,7 +111,7 @@ export function App() {
 
       {/* 3D WebXR Canvas */}
       <Canvas
-        camera={{ position: [0, 12, 22], fov: 50 }}
+        camera={{ position: [0, 10, 18], fov: 50 }}
         gl={{ antialias: true, alpha: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
         dpr={[1, 1.5]}
         shadows
@@ -132,20 +132,21 @@ export function App() {
             glintIntensity={glintIntensity}
           />
 
-          <ProceduralWand
+          <SnowSurferController
             activeSpell={activeSpell}
             onBrushUpdate={handleBrushUpdate}
+            followCamera={!isMouseDown}
           />
 
           <SpellParticleSystem
             activeSpell={activeSpell}
             brushPos={brushPos}
-            isEmitting={isMouseDown}
+            isEmitting={true}
           />
 
           <CinematicPostProcessing />
 
-          <OrbitControls enabled={!isMouseDown} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={4} maxDistance={60} />
+          <OrbitControls enabled={isMouseDown} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={4} maxDistance={60} />
         </XR>
       </Canvas>
     </div>
