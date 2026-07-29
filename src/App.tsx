@@ -147,6 +147,7 @@ export function App() {
             activeSpell={activeSpell}
             onBrushUpdate={handleBrushUpdate}
             followCamera={!isMouseDown}
+            isMouseDown={isMouseDown}
           />
 
           <GPGPUSpellParticles

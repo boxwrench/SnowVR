@@ -14,14 +14,16 @@ interface SnowSurferControllerProps {
     wetness: number
   ) => void
   readonly followCamera?: boolean
+  readonly isMouseDown?: boolean
 }
 
 export function SnowSurferController({
   activeSpell,
   onBrushUpdate,
   followCamera = true,
+  isMouseDown = false,
 }: SnowSurferControllerProps) {
-  const { camera } = useThree()
+  const { camera, pointer, raycaster } = useThree()
   const session = useXR((state) => state.session)
   
   // Character Physics State
@@ -29,6 +31,9 @@ export function SnowSurferController({
   const velocity = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
   const heading = useRef<number>(0) // Yaw angle in radians
   const bankRoll = useRef<number>(0) // Roll angle for turning lean
+
+  // Independent Aiming Target Position
+  const aimTargetPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
 
   // VR 3rd-Person Origin Tracking
   const xrOriginPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 3, 6))
@@ -51,6 +56,7 @@ export function SnowSurferController({
   const characterGroupRef = useRef<THREE.Group>(null)
   const boardGroupRef = useRef<THREE.Group>(null)
   const xrOriginRef = useRef<THREE.Group>(null)
+  const aimReticleRef = useRef<THREE.Group>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,17 +94,15 @@ export function SnowSurferController({
 
     if (keys.current.left) {
       heading.current += turnSpeed
-      targetBank = -0.42 // Deep turn lean
+      targetBank = -0.42
     }
     if (keys.current.right) {
       heading.current -= turnSpeed
-      targetBank = 0.42 // Deep turn lean
+      targetBank = 0.42
     }
 
-    // Smooth leaning interpolation
     bankRoll.current += (targetBank - bankRoll.current) * 10.0 * delta
 
-    // Forward/Backward acceleration
     const moveDir = new THREE.Vector3(
       Math.sin(heading.current),
       0,
@@ -111,13 +115,11 @@ export function SnowSurferController({
       velocity.current.addScaledVector(moveDir, -accelRate * 0.5)
     }
 
-    // Apply friction and clamp speed
     velocity.current.multiplyScalar(friction)
     if (velocity.current.length() > maxSpeed) {
       velocity.current.setLength(maxSpeed)
     }
 
-    // Update 3D position
     position.current.addScaledVector(velocity.current, delta)
     position.current.x = THREE.MathUtils.clamp(position.current.x, -56, 56)
     position.current.z = THREE.MathUtils.clamp(position.current.z, -56, 56)
@@ -133,13 +135,34 @@ export function SnowSurferController({
       boardGroupRef.current.rotation.z = bankRoll.current
     }
 
-    // 3. Continuous Snow Carving — spells use their castMultiplier for dramatic effects
-    if (speed > 0.5) {
+    // 3. Compute Independent Mouse/VR Raycast Aim Position on Snow Plane
+    raycaster.setFromCamera(pointer, camera)
+    const snowPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    const rayIntersection = new THREE.Vector3()
+    if (raycaster.ray.intersectPlane(snowPlane, rayIntersection)) {
+      aimTargetPos.current.copy(rayIntersection)
+    } else {
+      // Default aim in front of surfer
+      aimTargetPos.current.copy(position.current).addScaledVector(moveDir, 6.0)
+    }
+
+    if (aimReticleRef.current) {
+      aimReticleRef.current.position.copy(aimTargetPos.current)
+    }
+
+    // 4. Carving & Spell Casting Logic:
+    // If holding Left Click / aiming separately, cast active spell AT THE AIMED POINT on terrain!
+    // Otherwise, carve the natural snowboard wake under the board.
+    const activeImpactPos = (isMouseDown && activeSpell.id !== 'snow-surf')
+      ? aimTargetPos.current
+      : position.current
+
+    if (speed > 0.5 || isMouseDown) {
       const mult = activeSpell.castMultiplier
       const brushVec = new THREE.Vector3(
-        position.current.x,
-        position.current.z,
-        activeSpell.brushRadius * (1.0 + speed * 0.02)
+        activeImpactPos.x,
+        activeImpactPos.z,
+        activeSpell.brushRadius * (1.0 + speed * 0.015)
       )
       
       onBrushUpdate(
@@ -151,7 +174,7 @@ export function SnowSurferController({
       )
     }
 
-    // 4. Smooth 3rd-Person Follow Camera (Desktop & VR XROrigin Tracking)
+    // 5. Smooth 3rd-Person Follow Camera
     const camDist = 7.0 + speed * 0.08
     const camHeight = 3.8 + speed * 0.03
     const camOffset = new THREE.Vector3(
@@ -162,13 +185,11 @@ export function SnowSurferController({
     const targetCamPos = position.current.clone().add(camOffset)
 
     if (session !== undefined) {
-      // VR 3rd-Person Origin Tracking: move XR camera origin smoothly behind surfer
       xrOriginPos.current.lerp(targetCamPos, 0.12)
       if (xrOriginRef.current) {
         xrOriginRef.current.position.copy(xrOriginPos.current)
       }
     } else if (followCamera && speed > 0.2) {
-      // Desktop 3rd-person follow
       camera.position.lerp(targetCamPos, 0.12)
       camera.lookAt(position.current.x, 1.0, position.current.z)
     }
@@ -181,27 +202,30 @@ export function SnowSurferController({
         <XROrigin ref={xrOriginRef} position={[0, 3, 6]} />
       )}
 
+      {/* Independent Spell Aim Reticle & Targeted Caster Light */}
+      <group ref={aimReticleRef} position={[0, 0.1, 0]}>
+        <pointLight color={activeSpell.color} intensity={6.0} distance={10} decay={2} position={[0, 0.6, 0]} />
+
+        {/* Aim Target Ring */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+          <ringGeometry args={[activeSpell.brushRadius * 0.7, activeSpell.brushRadius * 1.3, 32]} />
+          <meshBasicMaterial color={activeSpell.color} transparent opacity={0.8} side={THREE.DoubleSide} />
+        </mesh>
+
+        {/* Aim Crystal Marker */}
+        <mesh position={[0, 0.4, 0]}>
+          <octahedronGeometry args={[0.2, 0]} />
+          <meshStandardMaterial
+            color={activeSpell.color}
+            emissive={activeSpell.color}
+            emissiveIntensity={3.0}
+          />
+        </mesh>
+      </group>
+
       <group ref={characterGroupRef} position={[0, 0, 0]}>
         {/* Dynamic Carving SSS Light under the board */}
-        <pointLight color={activeSpell.color} intensity={5.0} distance={9} decay={2} position={[0, 0.4, 0]} />
-
-        {/* Hydro Stream Liquid Water Jet Beam */}
-        {activeSpell.vfxType === 'liquid_stream' && (
-          <group position={[0, 1.0, 0.5]}>
-            <mesh rotation={[Math.PI / 4, 0, 0]} position={[0, -0.4, 1.2]}>
-              <cylinderGeometry args={[0.08, 0.35, 3.2, 16]} />
-              <meshStandardMaterial
-                color="#38bdf8"
-                emissive="#0284c7"
-                emissiveIntensity={2.5}
-                roughness={0.05}
-                transparent
-                opacity={0.85}
-              />
-            </mesh>
-            <pointLight color="#38bdf8" intensity={6.0} distance={7} position={[0, -0.6, 2.2]} />
-          </group>
-        )}
+        <pointLight color={activeSpell.color} intensity={4.0} distance={8} decay={2} position={[0, 0.4, 0]} />
 
         <group ref={boardGroupRef}>
           {/* Snow Craft Board */}
@@ -228,12 +252,6 @@ export function SnowSurferController({
             <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.0} />
           </mesh>
         </group>
-
-        {/* Surfer Carving Contact Ring */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-          <ringGeometry args={[activeSpell.brushRadius * 0.6, activeSpell.brushRadius * 1.1, 32]} />
-          <meshBasicMaterial color={activeSpell.color} transparent opacity={0.6} side={THREE.DoubleSide} />
-        </mesh>
       </group>
     </>
   )
