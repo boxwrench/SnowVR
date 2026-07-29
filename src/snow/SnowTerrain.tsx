@@ -13,6 +13,7 @@ interface SnowTerrainProps {
   readonly windDecay: number
   readonly glintScale: number
   readonly glintIntensity: number
+  readonly foveaRadius?: number
 }
 
 export function SnowTerrain({
@@ -24,8 +25,9 @@ export function SnowTerrain({
   windDecay,
   glintScale,
   glintIntensity,
+  foveaRadius = 0.28,
 }: SnowTerrainProps) {
-  const { gl } = useThree()
+  const { gl, size } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
 
   // 2048x2048 high-resolution 4-channel deformation state buffer
@@ -56,6 +58,12 @@ export function SnowTerrain({
     snowMaterial.uniforms.uDeformationMap.value = deformationBuffer.texture
     snowMaterial.uniforms.uGlintScale.value = glintScale
     snowMaterial.uniforms.uGlintIntensity.value = glintIntensity
+
+    // Foveated rendering uniforms
+    snowMaterial.uniforms.uFoveaRadius.value = foveaRadius
+    snowMaterial.uniforms.uResolution.value.set(size.width, size.height)
+    // uFoveaCenter stays at (0.5, 0.5) — screen center pseudo-foveation
+    // Future: swap to WebXR gaze direction when eye tracking API lands
   })
 
   return (

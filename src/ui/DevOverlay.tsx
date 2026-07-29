@@ -5,6 +5,8 @@ interface DevOverlayProps {
   readonly setGlintScale: (v: number) => void
   readonly glintIntensity: number
   readonly setGlintIntensity: (v: number) => void
+  readonly foveaRadius: number
+  readonly setFoveaRadius: (v: number) => void
 }
 
 export function DevOverlay({
@@ -14,6 +16,8 @@ export function DevOverlay({
   setGlintScale,
   glintIntensity,
   setGlintIntensity,
+  foveaRadius,
+  setFoveaRadius,
 }: DevOverlayProps) {
   return (
     <div className="overlay-panel dev-panel-overlay">
@@ -63,6 +67,22 @@ export function DevOverlay({
           step="0.2"
           value={glintIntensity}
           onChange={(e) => setGlintIntensity(parseFloat(e.target.value))}
+          className="control-slider"
+        />
+      </div>
+
+      <div className="control-group">
+        <div className="control-label">
+          <span>👁️ Fovea Radius</span>
+          <span>{foveaRadius.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0.1"
+          max="0.6"
+          step="0.02"
+          value={foveaRadius}
+          onChange={(e) => setFoveaRadius(parseFloat(e.target.value))}
           className="control-slider"
         />
       </div>
