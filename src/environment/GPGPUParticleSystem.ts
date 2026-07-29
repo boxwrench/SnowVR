@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { referenceProbabilityToFrameProbability } from '../snow/simulationTiming'
 
 /**
  * GPU-Based Particle System using ping-pong FBO textures.
@@ -20,7 +21,7 @@ uniform sampler2D uParticleState;    // Current state: RG = pos.xz, BA = vel.xz
 uniform sampler2D uParticleState2;   // Current state2: R = pos.y, G = vel.y, B = life, A = maxLife
 uniform vec2 uResolution;
 uniform float uDeltaTime;
-uniform vec3 uEmitterPos;            // World XZ position + radius
+uniform vec4 uEmitterPosRadius;      // World XYZ position + radius
 uniform float uEmitRate;             // 0.0–1.0 probability of respawning dead particles
 uniform float uGravity;
 uniform float uDrag;
@@ -65,10 +66,10 @@ void main() {
       vec2 rng = hash2(seed);
       vec2 rng2 = hash2(seed + vec2(33.7, 77.1));
       float angle = rng.x * 6.2832;
-      float radius = rng.y * uEmitterPos.z;
+      float radius = rng.y * uEmitterPosRadius.w;
 
-      posXZ = uEmitterPos.xy + vec2(cos(angle), sin(angle)) * radius;
-      posY = 0.15;
+      posXZ = uEmitterPosRadius.xz + vec2(cos(angle), sin(angle)) * radius;
+      posY = uEmitterPosRadius.y;
 
       // Spell-specific spawn velocities
       if (uSpellType < 0.5) {
@@ -121,7 +122,7 @@ void main() {
 
     // Vortex spiral force (only for vortex spell)
     if (uSpellType > 3.5) {
-      vec2 toCenter = uEmitterPos.xy - posXZ;
+      vec2 toCenter = uEmitterPosRadius.xz - posXZ;
       float dist = length(toCenter);
       if (dist > 0.1) {
         vec2 inward = normalize(toCenter) * 3.0 * uDeltaTime;
@@ -135,8 +136,8 @@ void main() {
     posY += velY * uDeltaTime;
 
     // Floor bounce
-    if (posY < 0.05) {
-      posY = 0.05;
+    if (posY < uEmitterPosRadius.y) {
+      posY = uEmitterPosRadius.y;
       velY = abs(velY) * 0.3;
     }
   }
@@ -152,7 +153,7 @@ uniform sampler2D uParticleState;
 uniform sampler2D uParticleState2;
 uniform vec2 uResolution;
 uniform float uDeltaTime;
-uniform vec3 uEmitterPos;
+uniform vec4 uEmitterPosRadius;
 uniform float uEmitRate;
 uniform float uGravity;
 uniform float uDrag;
@@ -194,7 +195,7 @@ void main() {
       vec2 rng2 = hash2(seed + vec2(33.7, 77.1));
       float angle = rng.x * 6.2832;
 
-      posY = 0.15;
+      posY = uEmitterPosRadius.y;
 
       if (uSpellType < 0.5) {
         velY = 1.5 + rng2.y * 3.0;
@@ -222,8 +223,8 @@ void main() {
     velY *= (1.0 - uDrag * 0.5 * uDeltaTime);
     velY += uWindForce.y * uDeltaTime;
     posY += velY * uDeltaTime;
-    if (posY < 0.05) {
-      posY = 0.05;
+    if (posY < uEmitterPosRadius.y) {
+      posY = uEmitterPosRadius.y;
       velY = abs(velY) * 0.3;
     }
   }
@@ -341,7 +342,7 @@ export class GPGPUParticleSystem {
       uParticleState2: { value: null as THREE.Texture | null },
       uResolution: { value: new THREE.Vector2(texSize, texSize) },
       uDeltaTime: { value: 0.016 },
-      uEmitterPos: { value: new THREE.Vector3(0, 0, 1.0) }, // xy = worldXZ, z = radius
+      uEmitterPosRadius: { value: new THREE.Vector4(0, 0, 0, 1.0) },
       uEmitRate: { value: 0.3 },
       uGravity: { value: 5.0 },
       uDrag: { value: 1.8 },
@@ -393,7 +394,7 @@ export class GPGPUParticleSystem {
     renderer: THREE.WebGLRenderer,
     deltaTime: number,
     time: number,
-    emitterPos: THREE.Vector3, // xy = worldXZ, z = radius
+    emitterPosRadius: THREE.Vector4,
     emitRate: number,
     spellType: number,
     color: THREE.Color
@@ -410,8 +411,8 @@ export class GPGPUParticleSystem {
       mat.uniforms.uParticleState.value = readState1.texture
       mat.uniforms.uParticleState2.value = readState2.texture
       mat.uniforms.uDeltaTime.value = dt
-      mat.uniforms.uEmitterPos.value.copy(emitterPos)
-      mat.uniforms.uEmitRate.value = emitRate
+      mat.uniforms.uEmitterPosRadius.value.copy(emitterPosRadius)
+      mat.uniforms.uEmitRate.value = referenceProbabilityToFrameProbability(emitRate, dt)
       mat.uniforms.uSpellType.value = spellType
       mat.uniforms.uTime.value = time
     }

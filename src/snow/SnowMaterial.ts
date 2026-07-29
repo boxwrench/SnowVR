@@ -2,7 +2,10 @@ import * as THREE from 'three'
 
 const snowVertexShader = `
 uniform sampler2D uDeformationMap;
+uniform sampler2D uTerrainHeightMap;
 uniform float uDisplacementScale;
+uniform float uTerrainGridSize;
+uniform float uTerrainWorldSize;
 
 varying vec2 vUv;
 varying vec3 vWorldPosition;
@@ -11,56 +14,23 @@ varying vec4 vDeformation;
 varying float vSlope;
 varying vec4 vClipPos;
 
-// Analytical gradient noise with derivatives for anisotropic wind dunes & rock outcrops
-vec3 hash3(vec3 p) {
-  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
-           dot(p, vec3(269.5, 183.3, 246.1)),
-           dot(p, vec3(113.5, 271.9, 124.6)));
-  return fract(sin(p) * 43758.5453123) * 2.0 - 1.0;
+vec2 terrainTexelUv(vec2 planeUv) {
+  return (clamp(planeUv, 0.0, 1.0) * (uTerrainGridSize - 1.0) + 0.5)
+    / uTerrainGridSize;
 }
 
-float gradientNoise(vec3 p) {
-  vec3 i = floor(p);
-  vec3 f = fract(p);
-  vec3 u = f * f * (3.0 - 2.0 * f);
-  
-  return mix(
-    mix(mix(dot(hash3(i + vec3(0,0,0)), f - vec3(0,0,0)),
-            dot(hash3(i + vec3(1,0,0)), f - vec3(1,0,0)), u.x),
-        mix(dot(hash3(i + vec3(0,1,0)), f - vec3(0,1,0)),
-            dot(hash3(i + vec3(1,1,0)), f - vec3(1,1,0)), u.x), u.y),
-    mix(mix(dot(hash3(i + vec3(0,0,1)), f - vec3(0,0,1)),
-            dot(hash3(i + vec3(1,0,1)), f - vec3(1,0,1)), u.x),
-        mix(dot(hash3(i + vec3(0,1,1)), f - vec3(0,1,1)),
-            dot(hash3(i + vec3(1,1,1)), f - vec3(1,1,1)), u.x), u.y), u.z);
-}
-
-// Multi-scale terrain noise (broad dune ridges + sheared sastrugi + rock outcrops)
-float terrainHeight(vec3 worldPos) {
-  vec2 p = worldPos.xz;
-  
-  // Downhill slope matching terrainMath.ts
-  float slope = -p.y * 0.12;
-  
-  // 1. Broad transverse dune ridges (sheared along prevailing wind [1.0, 0.3])
-  vec2 windP = vec2(p.x * 0.4 + p.y * 0.12, p.y * 0.4 - p.x * 0.12);
-  float duneRidges = sin(windP.x * 0.12) * 1.8 + gradientNoise(vec3(windP * 0.05, 0.0)) * 2.5;
-  
-  // 2. Medium sastrugi ripples (lee-face asymmetry)
-  float sastrugi = gradientNoise(vec3(windP * 0.35, 1.2)) * 0.6;
-  
-  return slope + duneRidges + sastrugi;
+float sampleTerrainHeight(vec2 planeUv) {
+  return texture2D(uTerrainHeightMap, terrainTexelUv(planeUv)).r;
 }
 
 void main() {
   vUv = uv;
-  vec4 initialWorldPos = modelMatrix * vec4(position, 1.0);
   
   // Sample deformation state buffer: R = depression, G = raised berm/spire, B = ice, A = wetness
   vec4 deform = texture2D(uDeformationMap, uv);
   vDeformation = deform;
   
-  float naturalHeight = terrainHeight(initialWorldPos.xyz);
+  float naturalHeight = sampleTerrainHeight(uv);
   // Allow positive berm height to build high ice spires & vortex mountains!
   float deformHeight = (-deform.r * 1.2 + deform.g * 1.8) * uDisplacementScale;
   
@@ -70,25 +40,29 @@ void main() {
   
   vWorldPosition = (modelMatrix * vec4(displacedPosition, 1.0)).xyz;
   
-  // Compute smooth displaced vertex normal via central differences in world space
-  float eps = 0.3;
-  float hL = terrainHeight(vWorldPosition - vec3(eps, 0.0, 0.0));
-  float hR = terrainHeight(vWorldPosition + vec3(eps, 0.0, 0.0));
-  float hD = terrainHeight(vWorldPosition - vec3(0.0, 0.0, eps));
-  float hU = terrainHeight(vWorldPosition + vec3(0.0, 0.0, eps));
-  
-  vec2 uvEps = vec2(eps / 120.0);
-  vec4 deformL = texture2D(uDeformationMap, uv - vec2(uvEps.x, 0.0));
-  vec4 deformR = texture2D(uDeformationMap, uv + vec2(uvEps.x, 0.0));
-  vec4 deformD = texture2D(uDeformationMap, uv - vec2(0.0, uvEps.y));
-  vec4 deformU = texture2D(uDeformationMap, uv + vec2(0.0, uvEps.y));
+  // Sample adjacent grid vertices. Plane UV V runs opposite world Z after rotation.
+  float uvStep = 1.0 / (uTerrainGridSize - 1.0);
+  float worldStep = uTerrainWorldSize / (uTerrainGridSize - 1.0);
+  vec2 uvNegX = uv - vec2(uvStep, 0.0);
+  vec2 uvPosX = uv + vec2(uvStep, 0.0);
+  vec2 uvNegZ = uv + vec2(0.0, uvStep);
+  vec2 uvPosZ = uv - vec2(0.0, uvStep);
+  float hL = sampleTerrainHeight(uvNegX);
+  float hR = sampleTerrainHeight(uvPosX);
+  float hD = sampleTerrainHeight(uvNegZ);
+  float hU = sampleTerrainHeight(uvPosZ);
+
+  vec4 deformL = texture2D(uDeformationMap, clamp(uvNegX, 0.0, 1.0));
+  vec4 deformR = texture2D(uDeformationMap, clamp(uvPosX, 0.0, 1.0));
+  vec4 deformD = texture2D(uDeformationMap, clamp(uvNegZ, 0.0, 1.0));
+  vec4 deformU = texture2D(uDeformationMap, clamp(uvPosZ, 0.0, 1.0));
   
   hL += (-deformL.r * 1.2 + deformL.g * 1.8) * uDisplacementScale;
   hR += (-deformR.r * 1.2 + deformR.g * 1.8) * uDisplacementScale;
   hD += (-deformD.r * 1.2 + deformD.g * 1.8) * uDisplacementScale;
   hU += (-deformU.r * 1.2 + deformU.g * 1.8) * uDisplacementScale;
   
-  vec3 normalCalc = normalize(vec3(hL - hR, 2.0 * eps, hD - hU));
+  vec3 normalCalc = normalize(vec3(hL - hR, 2.0 * worldStep, hD - hU));
   vWorldNormal = normalCalc;
   
   // Slope calculation for triplanar rock shading on steep faces
@@ -266,13 +240,20 @@ void main() {
 }
 `
 
-export function createSnowMaterial(): THREE.ShaderMaterial {
+export function createSnowMaterial(
+  terrainHeightMap: THREE.DataTexture,
+  terrainGridSize: number,
+  terrainWorldSize: number,
+): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexShader: snowVertexShader,
     fragmentShader: snowFragmentShader,
     uniforms: {
       uDeformationMap: { value: null },
+      uTerrainHeightMap: { value: terrainHeightMap },
       uDisplacementScale: { value: 1.0 },
+      uTerrainGridSize: { value: terrainGridSize },
+      uTerrainWorldSize: { value: terrainWorldSize },
       uSunDirection: { value: new THREE.Vector3(3, 5, 4).normalize() },
       uSunColor: { value: new THREE.Color('#fff0d6') },
       uSkyColor: { value: new THREE.Color('#2b5c7e') },

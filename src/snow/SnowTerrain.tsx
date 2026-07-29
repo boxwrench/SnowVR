@@ -3,6 +3,12 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { SnowDeformationBuffer } from './SnowDeformationBuffer'
 import { createSnowMaterial } from './SnowMaterial'
+import {
+  TERRAIN_GRID_SIZE,
+  TERRAIN_HEIGHT_DATA,
+  TERRAIN_SEGMENTS,
+  TERRAIN_SIZE,
+} from './terrainMath'
 
 export interface BrushState {
   pos: THREE.Vector3
@@ -30,14 +36,34 @@ export function SnowTerrain({
 
   // 1024x1024 Quest-optimized deformation FBO buffer
   const deformationBuffer = useMemo(() => new SnowDeformationBuffer(1024), [])
-  const snowMaterial = useMemo(() => createSnowMaterial(), [])
+  const terrainHeightMap = useMemo(() => {
+    const texture = new THREE.DataTexture(
+      TERRAIN_HEIGHT_DATA,
+      TERRAIN_GRID_SIZE,
+      TERRAIN_GRID_SIZE,
+      THREE.RedFormat,
+      THREE.FloatType,
+    )
+    texture.minFilter = THREE.NearestFilter
+    texture.magFilter = THREE.NearestFilter
+    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
+    texture.generateMipmaps = false
+    texture.needsUpdate = true
+    return texture
+  }, [])
+  const snowMaterial = useMemo(
+    () => createSnowMaterial(terrainHeightMap, TERRAIN_GRID_SIZE, TERRAIN_SIZE),
+    [terrainHeightMap],
+  )
 
   useEffect(() => {
     return () => {
       deformationBuffer.dispose()
+      terrainHeightMap.dispose()
       snowMaterial.dispose()
     }
-  }, [deformationBuffer, snowMaterial])
+  }, [deformationBuffer, snowMaterial, terrainHeightMap])
 
   useFrame((_, delta) => {
     // Enable Quest 3 Native Fixed Foveated Rendering (Medium level = 0.5)
@@ -79,7 +105,7 @@ export function SnowTerrain({
       material={snowMaterial}
     >
       {/* 256x256 Quest 3 balanced vertex grid (65k vertices) */}
-      <planeGeometry args={[120, 120, 256, 256]} />
+      <planeGeometry args={[TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS]} />
     </mesh>
   )
 }

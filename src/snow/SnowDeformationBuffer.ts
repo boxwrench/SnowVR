@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getReferenceFrameScale } from './simulationTiming'
 
 // High-fidelity FBO ping-pong compute shader: 4-channel surface state (R=depth, G=berm/height, B=ice, A=wetness)
 const deformationSimFragmentShader = `
@@ -11,6 +12,7 @@ uniform float uBrushIce;   // Ice compression factor
 uniform float uBrushWetness; // Water slush factor
 uniform float uWindDecay;  // Refill decay speed
 uniform float uDeltaTime;
+uniform float uFrameScale; // Stamp amount relative to one 72 Hz reference frame
 uniform vec2 uWindVector;  // Prevailing wind direction for anisotropic infill
 
 varying vec2 vUv;
@@ -46,17 +48,17 @@ void main() {
 
   if (uBrushDepth >= 0.0) {
     // DIG / TRENCH / MELT MODE (Spells 1, 2, 4)
-    depression = clamp(depression + stamp * uBrushDepth * 0.45, 0.0, 1.0);
-    berm = clamp(berm + bermRing * uBrushDepth * uBrushBerm * 0.55, 0.0, 1.0);
+    depression = clamp(depression + stamp * uBrushDepth * 0.45 * uFrameScale, 0.0, 1.0);
+    berm = clamp(berm + bermRing * uBrushDepth * uBrushBerm * 0.55 * uFrameScale, 0.0, 1.0);
   } else {
     // BUILD HEIGHT / ICE SPIRE / VORTEX MOUNTAIN MODE (Spells 3, 5)
     float buildHeight = -uBrushDepth;
-    berm = clamp(berm + stamp * buildHeight * 0.6, 0.0, 1.0);
-    depression = max(0.0, depression - stamp * buildHeight * 0.5);
+    berm = clamp(berm + stamp * buildHeight * 0.6 * uFrameScale, 0.0, 1.0);
+    depression = max(0.0, depression - stamp * buildHeight * 0.5 * uFrameScale);
   }
 
-  ice = clamp(ice + stamp * uBrushIce * 0.6, 0.0, 1.0);
-  wetness = clamp(wetness + stamp * uBrushWetness * 0.6, 0.0, 1.0);
+  ice = clamp(ice + stamp * uBrushIce * 0.6 * uFrameScale, 0.0, 1.0);
+  wetness = clamp(wetness + stamp * uBrushWetness * 0.6 * uFrameScale, 0.0, 1.0);
   
   // Anisotropic Slump Diffusion: Loose berms slump 3x faster than packed trench floor
   float neighborBermAvg = (top.g + bottom.g + left.g + right.g) * 0.25;
@@ -126,6 +128,7 @@ export class SnowDeformationBuffer {
         uWindDecay: { value: 0.15 },
         uWindVector: { value: new THREE.Vector2(1.0, 0.3).normalize() },
         uDeltaTime: { value: 0.016 },
+        uFrameScale: { value: 1.0 },
       },
     })
 
@@ -158,6 +161,7 @@ export class SnowDeformationBuffer {
     this.simMaterial.uniforms.uBrushWetness.value = brushWetness
     this.simMaterial.uniforms.uWindDecay.value = windDecay
     this.simMaterial.uniforms.uDeltaTime.value = Math.min(deltaTime, 0.05)
+    this.simMaterial.uniforms.uFrameScale.value = getReferenceFrameScale(deltaTime)
 
     renderer.setRenderTarget(writeTarget)
     renderer.render(this.simScene, this.simCamera)

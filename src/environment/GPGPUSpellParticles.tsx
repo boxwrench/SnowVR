@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
+import { getTerrainHeight } from '../snow/terrainMath'
 import { GPGPUParticleSystem } from './GPGPUParticleSystem'
 
 interface GPGPUSpellParticlesProps {
@@ -57,10 +58,11 @@ export function GPGPUSpellParticles({
       gpgpuSystem.renderMesh.visible = true
     }
 
-    const emitterPos = new THREE.Vector3(
+    const emitterPosRadius = new THREE.Vector4(
       brush.pos.x,
+      getTerrainHeight(brush.pos.x, brush.pos.y) + 0.15,
       brush.pos.y,
-      activeSpell.brushRadius * 1.5
+      activeSpell.brushRadius * 1.5,
     )
 
     const spellIdx = spellTypeToIndex(activeSpell.vfxType)
@@ -70,7 +72,7 @@ export function GPGPUSpellParticles({
       gl,
       delta,
       state.clock.elapsedTime,
-      emitterPos,
+      emitterPosRadius,
       emitRate,
       spellIdx,
       color

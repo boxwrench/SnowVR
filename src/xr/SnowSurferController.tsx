@@ -290,6 +290,9 @@ export function SnowSurferController({
         brushRef.current.wetness = 0.0
       } else {
         brushRef.current.depth = 0
+        brushRef.current.berm = 0
+        brushRef.current.ice = 0
+        brushRef.current.wetness = 0
       }
     }
 
