@@ -13,9 +13,7 @@
   "dependencies": {
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
-    "@react-three/postprocessing": "^2.16.8",
     "@react-three/xr": "^6.6.30",
-    "postprocessing": "^6.36.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "0.165.0"

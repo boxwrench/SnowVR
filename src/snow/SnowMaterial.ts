@@ -39,18 +39,17 @@ float gradientNoise(vec3 p) {
 float terrainHeight(vec3 worldPos) {
   vec2 p = worldPos.xz;
   
+  // Downhill slope matching terrainMath.ts
+  float slope = -p.y * 0.12;
+  
   // 1. Broad transverse dune ridges (sheared along prevailing wind [1.0, 0.3])
   vec2 windP = vec2(p.x * 0.4 + p.y * 0.12, p.y * 0.4 - p.x * 0.12);
-  float duneRidges = sin(windP.x * 0.12) * 2.8 + gradientNoise(vec3(windP * 0.05, 0.0)) * 3.5;
+  float duneRidges = sin(windP.x * 0.12) * 1.8 + gradientNoise(vec3(windP * 0.05, 0.0)) * 2.5;
   
   // 2. Medium sastrugi ripples (lee-face asymmetry)
-  float sastrugi = gradientNoise(vec3(windP * 0.35, 1.2)) * 0.8;
-  sastrugi += gradientNoise(vec3(windP * 1.5, 4.5)) * 0.25;
+  float sastrugi = gradientNoise(vec3(windP * 0.35, 1.2)) * 0.6;
   
-  // 3. Sparse rock outcrops (steep cliff bumps)
-  float rockBump = pow(max(0.0, gradientNoise(vec3(p * 0.03, 8.0)) + 0.35), 2.5) * 4.5;
-  
-  return duneRidges + sastrugi + rockBump;
+  return slope + duneRidges + sastrugi;
 }
 
 void main() {

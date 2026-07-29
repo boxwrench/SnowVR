@@ -288,7 +288,7 @@ void main() {
   vec2 crd = gl_PointCoord * 2.0 - 1.0;
   float dist = length(crd);
   if (dist > 1.0) discard;
-  float alpha = smoothstep(1.0, 0.3, dist) * lifeFrac;
+  float alpha = (1.0 - smoothstep(0.3, 1.0, dist)) * lifeFrac;
 
   // Height-based color shift: hotter/brighter near emission, fading as they fall
   vec3 col = uColor * (0.6 + lifeFrac * 0.6);

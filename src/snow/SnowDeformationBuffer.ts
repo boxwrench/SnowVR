@@ -34,10 +34,10 @@ void main() {
   float radius = uBrushPos.z;
   
   // Smooth Gaussian brush stamp
-  float stamp = smoothstep(radius, 0.0, dist);
+  float stamp = 1.0 - smoothstep(0.0, radius, dist);
   
   // Raised side-berm ring (mass displacement on trench edges)
-  float bermRing = smoothstep(radius * 0.2, radius * 0.75, dist) * smoothstep(radius * 1.6, radius * 0.85, dist);
+  float bermRing = smoothstep(radius * 0.2, radius * 0.75, dist) * (1.0 - smoothstep(radius * 0.85, radius * 1.6, dist));
   
   float depression = current.r;
   float berm = current.g;

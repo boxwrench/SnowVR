@@ -2,15 +2,15 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { SpellEffect } from '../experiments/SpellManager'
+import type { BrushState } from '../snow/SnowTerrain'
 import { GPGPUParticleSystem } from './GPGPUParticleSystem'
 
 interface GPGPUSpellParticlesProps {
   readonly activeSpell: SpellEffect
-  readonly brushPos: THREE.Vector3
+  readonly brushRef: React.RefObject<BrushState>
   readonly isEmitting: boolean
 }
 
-// Map spell vfxType to numeric index for the GPU sim shader
 function spellTypeToIndex(vfxType: SpellEffect['vfxType']): number {
   switch (vfxType) {
     case 'spray': return 0
@@ -24,12 +24,13 @@ function spellTypeToIndex(vfxType: SpellEffect['vfxType']): number {
 
 export function GPGPUSpellParticles({
   activeSpell,
-  brushPos,
+  brushRef,
   isEmitting,
 }: GPGPUSpellParticlesProps) {
   const { gl, scene } = useThree()
 
-  const gpgpuSystem = useMemo(() => new GPGPUParticleSystem(128), [])
+  // Adaptive Quest 3 Particle Budget: 64x64 = 4,096 particles (smooth performance, zero overdraw freeze)
+  const gpgpuSystem = useMemo(() => new GPGPUParticleSystem(64), [])
 
   useEffect(() => {
     scene.add(gpgpuSystem.renderMesh)
@@ -40,13 +41,14 @@ export function GPGPUSpellParticles({
   }, [gpgpuSystem, scene])
 
   useFrame((state, delta) => {
+    const brush = brushRef.current ?? { pos: new THREE.Vector3(999, 999, 0.5) }
     const emitterPos = new THREE.Vector3(
-      brushPos.x,
-      brushPos.z,
+      brush.pos.x,
+      brush.pos.y,
       activeSpell.brushRadius * 1.5
     )
 
-    const emitRate = isEmitting && brushPos.x < 100 ? 0.35 : 0.0
+    const emitRate = isEmitting && brush.pos.x < 100 ? 0.35 : 0.0
     const spellIdx = spellTypeToIndex(activeSpell.vfxType)
     const color = new THREE.Color(activeSpell.color)
 
@@ -61,5 +63,5 @@ export function GPGPUSpellParticles({
     )
   })
 
-  return null // Render mesh is added directly to scene in useEffect
+  return null
 }

@@ -4,12 +4,16 @@ import * as THREE from 'three'
 import { SnowDeformationBuffer } from './SnowDeformationBuffer'
 import { createSnowMaterial } from './SnowMaterial'
 
+export interface BrushState {
+  pos: THREE.Vector3
+  depth: number
+  berm: number
+  ice: number
+  wetness: number
+}
+
 interface SnowTerrainProps {
-  readonly brushPosition: THREE.Vector3
-  readonly brushDepth: number
-  readonly brushBerm: number
-  readonly brushIce: number
-  readonly brushWetness: number
+  readonly brushRef: React.RefObject<BrushState>
   readonly windDecay: number
   readonly glintScale: number
   readonly glintIntensity: number
@@ -17,11 +21,7 @@ interface SnowTerrainProps {
 }
 
 export function SnowTerrain({
-  brushPosition,
-  brushDepth,
-  brushBerm,
-  brushIce,
-  brushWetness,
+  brushRef,
   windDecay,
   glintScale,
   glintIntensity,
@@ -30,8 +30,8 @@ export function SnowTerrain({
   const { gl, size } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
 
-  // 2048x2048 high-resolution 4-channel deformation state buffer
-  const deformationBuffer = useMemo(() => new SnowDeformationBuffer(2048), [])
+  // 1024x1024 Quest-optimized deformation FBO buffer
+  const deformationBuffer = useMemo(() => new SnowDeformationBuffer(1024), [])
   const snowMaterial = useMemo(() => createSnowMaterial(), [])
 
   useEffect(() => {
@@ -42,15 +42,23 @@ export function SnowTerrain({
   }, [deformationBuffer, snowMaterial])
 
   useFrame((_, delta) => {
-    // Update GPU ping-pong deformation FBO
+    const brush = brushRef.current ?? {
+      pos: new THREE.Vector3(999, 999, 0.5),
+      depth: 0,
+      berm: 1.2,
+      ice: 0,
+      wetness: 0,
+    }
+
+    // Update GPU ping-pong deformation FBO with direct ref read (zero React rerenders)
     deformationBuffer.update(
       gl,
       delta,
-      brushPosition,
-      brushDepth,
-      brushBerm,
-      brushIce,
-      brushWetness,
+      brush.pos,
+      brush.depth,
+      brush.berm,
+      brush.ice,
+      brush.wetness,
       windDecay
     )
 
@@ -62,8 +70,6 @@ export function SnowTerrain({
     // Foveated rendering uniforms
     snowMaterial.uniforms.uFoveaRadius.value = foveaRadius
     snowMaterial.uniforms.uResolution.value.set(size.width, size.height)
-    // uFoveaCenter stays at (0.5, 0.5) — screen center pseudo-foveation
-    // Future: swap to WebXR gaze direction when eye tracking API lands
   })
 
   return (
@@ -71,12 +77,10 @@ export function SnowTerrain({
       ref={meshRef}
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, 0, 0]}
-      receiveShadow
-      castShadow
       material={snowMaterial}
     >
-      {/* Expanded 120m x 120m high-density vertex grid */}
-      <planeGeometry args={[120, 120, 512, 512]} />
+      {/* 256x256 Quest 3 balanced vertex grid (65k vertices) */}
+      <planeGeometry args={[120, 120, 256, 256]} />
     </mesh>
   )
 }
