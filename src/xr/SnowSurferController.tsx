@@ -133,20 +133,21 @@ export function SnowSurferController({
       boardGroupRef.current.rotation.z = bankRoll.current
     }
 
-    // 3. Continuous Snow Carving
+    // 3. Continuous Snow Carving — spells use their castMultiplier for dramatic effects
     if (speed > 0.5) {
+      const mult = activeSpell.castMultiplier
       const brushVec = new THREE.Vector3(
         position.current.x,
         position.current.z,
-        activeSpell.brushRadius * (1.0 + speed * 0.015)
+        activeSpell.brushRadius * (1.0 + speed * 0.02)
       )
       
       onBrushUpdate(
         brushVec,
-        activeSpell.brushDepth * 0.4,
-        activeSpell.brushBerm * 0.45 * (1.0 + Math.abs(bankRoll.current) * 1.2),
-        activeSpell.brushIce,
-        activeSpell.brushWetness
+        activeSpell.brushDepth * mult * (0.6 + speed * 0.02),
+        activeSpell.brushBerm * mult * (0.6 + Math.abs(bankRoll.current) * 2.0),
+        activeSpell.brushIce * mult,
+        activeSpell.brushWetness * mult
       )
     }
 

@@ -8,7 +8,7 @@ import { Atmosphere } from './environment/Atmosphere'
 import { CinematicPostProcessing } from './environment/CinematicPostProcessing'
 import { DistantMountains } from './environment/DistantMountains'
 import { FallingSnowParticles } from './environment/FallingSnowParticles'
-import { SpellParticleSystem } from './environment/SpellParticleSystem'
+import { GPGPUSpellParticles } from './environment/GPGPUSpellParticles'
 import { AVAILABLE_SPELLS, type SpellEffect } from './experiments/SpellManager'
 import { SnowTerrain } from './snow/SnowTerrain'
 import { DevOverlay } from './ui/DevOverlay'
@@ -149,7 +149,7 @@ export function App() {
             followCamera={!isMouseDown}
           />
 
-          <SpellParticleSystem
+          <GPGPUSpellParticles
             activeSpell={activeSpell}
             brushPos={brushPos}
             isEmitting={isCasting}
