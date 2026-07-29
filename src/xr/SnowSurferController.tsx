@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { AVAILABLE_SPELLS, type SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
-import { getTerrainHeight, getTerrainNormal } from '../snow/terrainMath'
+import { getTerrainHeight, getTerrainNormal, TERRAIN_HALF_SIZE } from '../snow/terrainMath'
 import {
   createMovementKeyState,
   resetMovementKeys,
@@ -19,6 +19,7 @@ import {
   stepLoopTransition,
 } from './loopTransition'
 import { getXrChaseYaw } from './chaseCamera'
+import { resolveTerrainAim } from './terrainAim'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
@@ -57,6 +58,8 @@ export function SnowSurferController({
 
   // Aiming Target Position
   const aimTargetPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
+  const castOrigin = useRef(new THREE.Vector3())
+  const controllerDirection = useRef(new THREE.Vector3())
 
   // VR 3rd-Person Origin Tracking
   const xrOriginPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 5, 8))
@@ -245,19 +248,16 @@ export function SnowSurferController({
 
     // ─── 4. INDEPENDENT SPELL AIMING & RAY CASTING ───
     if (session !== undefined && rightController?.object) {
-      const rayOrigin = new THREE.Vector3()
-      const rayDirection = new THREE.Vector3(0, 0, -1)
-      rightController.object.getWorldPosition(rayOrigin)
-      rightController.object.getWorldDirection(rayDirection)
-      rayDirection.negate()
-
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -position.current.y)
-      const hit = new THREE.Vector3()
-      const ray = new THREE.Ray(rayOrigin, rayDirection)
-      if (ray.intersectPlane(plane, hit)) {
-        aimTargetPos.current.copy(hit)
-        aimTargetPos.current.y = getTerrainHeight(hit.x, hit.z) + 0.05
-      }
+      castOrigin.current.copy(position.current).addScaledVector(terrainNormalVec, 1.25)
+      rightController.object.getWorldDirection(controllerDirection.current).negate()
+      resolveTerrainAim(
+        castOrigin.current,
+        controllerDirection.current,
+        moveDir,
+        getTerrainHeight,
+        aimTargetPos.current,
+        { terrainHalfSize: TERRAIN_HALF_SIZE },
+      )
     } else {
       raycaster.setFromCamera(pointer, camera)
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -position.current.y)

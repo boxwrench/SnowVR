@@ -13,7 +13,8 @@ flowchart TD
   Heightfield --> CPU[CPU triangle sampler]
   Heightfield --> GPU[Vertex-shader height texture]
   CPU --> Rider
-  CPU --> Reticle[Reticle and particle grounding]
+  CPU --> Aim[Terrain-aware controller aim]
+  Aim --> Reticle[Reticle and particle grounding]
   Brush --> Deform[1024 x 1024 RGBA16F deformation ping-pong]
   Deform --> GPU
   Telemetry --> Audio[Wind and carving audio]
@@ -26,6 +27,7 @@ flowchart TD
 - `src/xr/store.ts` defines a deliberately small immersive-VR feature set. It disables unsolicited session offers and unused AR features, requests layers, sets fixed foveation to `0.5`, and selects 72 Hz when the runtime exposes it.
 - Native WebXR always takes priority. The IWER Quest emulator is opt-in during development with `?emulate=1`; it is never force-installed over a connected headset.
 - `SnowSurferController.tsx` owns rider position, velocity, heading, camera chase state, Quest controller sampling, desktop controls, spell aiming, and the endless-run transition.
+- Quest spell aiming ray-marches the right controller's target-ray direction against the CPU terrain sampler. Downward rays resolve to the first terrain crossing; level or upward rays use a bounded horizontal fallback so the target remains predictable and on the snowfield.
 - The loop transition fades a camera-following in-scene veil to full opacity before applying the same 80 m coordinate rebase to the rider and active camera rig. Velocity and heading are preserved.
 
 ## Terrain and deformation
@@ -33,6 +35,7 @@ flowchart TD
 - The base terrain is a deterministic 120 m square sampled into a 257 x 257 `Float32Array`, one height per vertex of a 256 x 256 segment `PlaneGeometry`.
 - The GPU samples that array through a nearest-filtered float `DataTexture`. CPU grounding uses the same data and the exact two-triangle split used by Three.js `PlaneGeometry`, including the inverted world-Z/texture-V mapping.
 - `SnowDeformationBuffer.ts` maintains two 1024 x 1024 `RGBA16F` render targets. Channels store depression, berm/spire height, ice, and wetness.
+- Offscreen deformation and GPGPU passes run through `withPreservedRenderTarget`. The helper temporarily disables Three.js WebXR camera substitution so those passes retain their orthographic simulation camera, then restores both the headset render target and the previous XR state.
 - Spell and carving stamps are normalized to a 72 Hz reference rate. Slump, wind refill, and drying use elapsed time.
 - Dynamic deformation is currently visual-only. Rider physics, reticles, and particle emission are grounded to the shared base heightfield, not the deformation buffer.
 

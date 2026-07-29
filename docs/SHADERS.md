@@ -19,6 +19,13 @@ Dynamic deformation is intentionally not included in CPU collision or grounding 
 
 `SnowDeformationBuffer.ts` executes one fragment pass per frame over ping-pong 1024 x 1024 `RGBA16F` render targets.
 
+While an immersive session is presenting, Three.js normally substitutes its
+stereo XR camera for cameras supplied to `renderer.render`. Compute passes must
+instead retain their orthographic simulation camera. SnowVR wraps every
+offscreen pass with `withPreservedRenderTarget`, which temporarily disables XR
+camera substitution and then restores the active headset target, cube face,
+mipmap level, and previous XR-enabled state even if a pass throws.
+
 | Channel | State |
 | --- | --- |
 | R | Depression depth |

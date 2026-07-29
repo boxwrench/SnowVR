@@ -22,7 +22,7 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 | **Left Thumbstick** | Steer left / right & accelerate / reverse |
 | **Right Controller Ray** | Aim elemental reticle across snowfield |
 | **Right Trigger** | Fire active elemental spell stream |
-| **Right A / B Buttons** | Cycle active spell |
+| **Right A / B Buttons** | Cycle to the next active spell |
 | **Left Grip / Trigger** | Speed boost (16 → 28 m/s / ~62 mph) |
 | **Haptics** | Tactile feedback on carving and spell casting |
 
@@ -63,7 +63,7 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 - **Adaptive GPGPU Particles:** GPU-driven ping-pong particle system (`GPGPUParticleSystem.ts`) budgeted to 4,096 active particles with automatic idle pause during normal riding.
 - **Zero-Asset Web Audio:** Procedural Web Audio synthesis (`SnowAudioController.tsx`) generating wind hiss and board scrape audio based on velocity.
 - **Instanced Slalom Gates:** Single-draw-call instanced slalom poles (`SlalomPoles.tsx`) every 18m for immediate visual scale and speed anchors.
-- **Performance Monitoring:** Real-time FPS, frame time (ms), and native FFR stats overlay (`DevOverlay.tsx`). Developer tuning controls toggled via `?dev=1`.
+- **Performance Monitoring:** Optional real-time FPS, frame time (ms), and native FFR diagnostics (`DevOverlay.tsx`). Enable the head-following headset panel only when profiling with `?dev=1`.
 
 ---
 
@@ -81,7 +81,11 @@ npm run dev
 ```bash
 npm run typecheck   # TypeScript type checking
 npm run build       # Production build
+npm run validate    # Type checking, unit tests, and production build
 ```
+
+Physical Meta Quest setup and the native-device test gates are documented in
+[`docs/DEVICE_TESTING.md`](docs/DEVICE_TESTING.md).
 
 ---
 
