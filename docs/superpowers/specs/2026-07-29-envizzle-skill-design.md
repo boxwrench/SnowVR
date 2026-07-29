@@ -1,4 +1,7 @@
-# Design: `oneshot-visual-demo` Skill
+# Design: `envizzle` Skill
+
+Invoked as `/envizzle`. Emits a self-contained implementation brief for a
+one-shot, visually impressive real-time graphics tech demo.
 
 **Date:** 2026-07-29
 **Status:** Approved, ready for implementation planning
@@ -85,7 +88,7 @@ prompt template/skill/
     └── verify_demo.mjs         hardened image gates
 ```
 
-Installed to `~/.claude/skills/oneshot-visual-demo/` as a copy. The repo path is
+Installed to `~/.claude/skills/envizzle/` as a copy. The repo path is
 authoritative; the install is a build artifact.
 
 `prompt_builder.html` is retained unchanged as an optional manual path. Adding the new
