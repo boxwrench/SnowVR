@@ -4,7 +4,13 @@ import { useEffect, useRef } from 'react'
  * Synthesizes procedural wind and snow carving sound effects via Web Audio API.
  * Requires zero audio asset files to download.
  */
-export function SnowAudioController({ speed = 0, isCarving = false }: { speed?: number; isCarving?: boolean }) {
+export function SnowAudioController({
+  speed = 0,
+  carvingIntensity = 0,
+}: {
+  readonly speed?: number
+  readonly carvingIntensity?: number
+}) {
   const audioCtxRef = useRef<AudioContext | null>(null)
   const windGainRef = useRef<GainNode | null>(null)
   const windFilterRef = useRef<BiquadFilterNode | null>(null)
@@ -46,10 +52,17 @@ export function SnowAudioController({ speed = 0, isCarving = false }: { speed?: 
         const scrapeGain = ctx.createGain()
         scrapeGain.gain.setValueAtTime(0.0, ctx.currentTime)
         scrapeGainRef.current = scrapeGain
+        const scrapeFilter = ctx.createBiquadFilter()
+        scrapeFilter.type = 'bandpass'
+        scrapeFilter.frequency.setValueAtTime(1800, ctx.currentTime)
+        scrapeFilter.Q.setValueAtTime(0.8, ctx.currentTime)
 
         whiteNoise.connect(filter)
         filter.connect(gain)
         gain.connect(ctx.destination)
+        whiteNoise.connect(scrapeFilter)
+        scrapeFilter.connect(scrapeGain)
+        scrapeGain.connect(ctx.destination)
 
         whiteNoise.start()
       } catch {
@@ -88,10 +101,12 @@ export function SnowAudioController({ speed = 0, isCarving = false }: { speed?: 
     windGainRef.current.gain.setTargetAtTime(targetVolume, now, 0.1)
 
     if (scrapeGainRef.current) {
-      const scrapeVol = isCarving && speed > 1.0 ? 0.08 + normSpeed * 0.15 : 0.0
+      const scrapeVol = speed > 1.0
+        ? Math.min(1, carvingIntensity) * (0.04 + normSpeed * 0.18)
+        : 0
       scrapeGainRef.current.gain.setTargetAtTime(scrapeVol, now, 0.05)
     }
-  }, [speed, isCarving])
+  }, [speed, carvingIntensity])
 
   return null
 }

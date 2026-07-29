@@ -5,15 +5,23 @@ import * as THREE from 'three'
 import { AVAILABLE_SPELLS, type SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
 import { getTerrainHeight, getTerrainNormal } from '../snow/terrainMath'
+import {
+  createMovementKeyState,
+  resetMovementKeys,
+  sampleQuestInput,
+  shouldEmitTelemetry,
+  updateMovementKey,
+  type SurferTelemetry,
+} from './inputState'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
   readonly onSelectSpell?: (spell: SpellEffect) => void
   readonly brushRef: React.RefObject<BrushState>
   readonly followCamera?: boolean
-  readonly isMouseDown?: boolean
-  readonly isCasting?: boolean
-  readonly setIsCasting?: (casting: boolean) => void
+  readonly desktopCasting?: boolean
+  readonly onVrCastingChange?: (casting: boolean) => void
+  readonly onTelemetry?: (telemetry: SurferTelemetry) => void
 }
 
 export function SnowSurferController({
@@ -21,9 +29,9 @@ export function SnowSurferController({
   onSelectSpell,
   brushRef,
   followCamera = true,
-  isMouseDown = false,
-  isCasting = false,
-  setIsCasting,
+  desktopCasting = false,
+  onVrCastingChange,
+  onTelemetry,
 }: SnowSurferControllerProps) {
   const { camera, pointer, raycaster, scene } = useThree()
   const session = useXR((state) => state.session)
@@ -48,21 +56,13 @@ export function SnowSurferController({
 
   // Last spell change timestamp for button debouncing
   const lastSpellChangeTime = useRef<number>(0)
+  const lastHapticTime = useRef<number>(0)
+  const lastVrCasting = useRef(false)
+  const lastTelemetry = useRef<SurferTelemetry | undefined>(undefined)
+  const lastTelemetryTime = useRef(0)
 
   // Desktop Key States
-  const keys = useRef<{
-    forward: boolean
-    backward: boolean
-    left: boolean
-    right: boolean
-    boost: boolean
-  }>({
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    boost: false,
-  })
+  const keys = useRef(createMovementKeyState())
 
   const characterGroupRef = useRef<THREE.Group>(null)
   const boardGroupRef = useRef<THREE.Group>(null)
@@ -71,28 +71,36 @@ export function SnowSurferController({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.current.forward = true
-      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.current.backward = true
-      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.current.left = true
-      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.current.right = true
-      if (e.key === ' ') keys.current.boost = true
+      updateMovementKey(keys.current, e.key, true)
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.current.forward = false
-      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.current.backward = false
-      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.current.left = false
-      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.current.right = false
-      if (e.key === ' ') keys.current.boost = false
+      updateMovementKey(keys.current, e.key, false)
+    }
+    const resetInput = () => resetMovementKeys(keys.current)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') resetInput()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', resetInput)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', resetInput)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
+
+  useEffect(() => {
+    if (session !== undefined) return
+    lastVrCasting.current = false
+    onVrCastingChange?.(false)
+  }, [onVrCastingChange, session])
+
+  useEffect(() => () => onVrCastingChange?.(false), [onVrCastingChange])
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
@@ -101,38 +109,19 @@ export function SnowSurferController({
     let turnInput = 0
     let forwardInput = 0
     let boostInput = keys.current.boost
-    let vrCastingInput = false
-
     const leftGamepad = leftController?.inputSource?.gamepad as Gamepad | undefined
     const rightGamepad = rightController?.inputSource?.gamepad as Gamepad | undefined
+    const questInput = sampleQuestInput(leftGamepad, rightGamepad)
+    turnInput = questInput.turn
+    forwardInput = questInput.forward
+    boostInput ||= questInput.boost
 
-    if (leftGamepad) {
-      const axes = leftGamepad.axes
-      const buttons = leftGamepad.buttons
-
-      const axisX = axes.length > 2 && Math.abs(axes[2]) > 0.1 ? axes[2] : axes[0] ?? 0
-      const axisY = axes.length > 3 && Math.abs(axes[3]) > 0.1 ? axes[3] : axes[1] ?? 0
-
-      if (Math.abs(axisX) > 0.15) turnInput = -axisX
-      if (Math.abs(axisY) > 0.15) forwardInput = -axisY
-
-      if (buttons[1]?.pressed || buttons[3]?.pressed) boostInput = true
-    }
-
-    if (rightGamepad) {
-      const buttons = rightGamepad.buttons
-
-      if (buttons[0]?.pressed) {
-        vrCastingInput = true
-      }
-
-      const now = performance.now()
-      if ((buttons[4]?.pressed || buttons[5]?.pressed) && now - lastSpellChangeTime.current > 350) {
-        lastSpellChangeTime.current = now
-        const currentIndex = AVAILABLE_SPELLS.findIndex((s) => s.id === activeSpell.id)
-        const nextIndex = (currentIndex + 1) % AVAILABLE_SPELLS.length
-        onSelectSpell?.(AVAILABLE_SPELLS[nextIndex])
-      }
+    const now = performance.now()
+    if (questInput.cycleSpell && now - lastSpellChangeTime.current > 350) {
+      lastSpellChangeTime.current = now
+      const currentIndex = AVAILABLE_SPELLS.findIndex((s) => s.id === activeSpell.id)
+      const nextIndex = (currentIndex + 1) % AVAILABLE_SPELLS.length
+      onSelectSpell?.(AVAILABLE_SPELLS[nextIndex])
     }
 
     // Combine desktop & VR steering
@@ -141,10 +130,11 @@ export function SnowSurferController({
     if (keys.current.forward) forwardInput = 1.0
     if (keys.current.backward) forwardInput = -0.5
 
-    const activeSpellCasting = isCasting || isMouseDown || vrCastingInput
-    if (setIsCasting && activeSpellCasting !== isCasting) {
-      setIsCasting(activeSpellCasting)
+    if (questInput.casting !== lastVrCasting.current) {
+      lastVrCasting.current = questInput.casting
+      onVrCastingChange?.(questInput.casting)
     }
+    const activeSpellCasting = desktopCasting || questInput.casting
 
     // ─── 2. DELTA-TIME EXPONENTIAL DAMPING PHYSICS ───
     const turnSpeed = 3.0 * dt
@@ -202,6 +192,19 @@ export function SnowSurferController({
     const terrainNormalVec = new THREE.Vector3(normal.nx, normal.ny, normal.nz)
 
     const speed = velocity.current.length()
+    const carvingIntensity = speed > 0.5
+      ? THREE.MathUtils.clamp((speed / 28) * (0.35 + Math.abs(bankRoll.current) * 1.75), 0, 1)
+      : 0
+    const telemetry: SurferTelemetry = {
+      speed,
+      carvingIntensity,
+      isCasting: activeSpellCasting,
+    }
+    if (shouldEmitTelemetry(lastTelemetry.current, telemetry, now, lastTelemetryTime.current)) {
+      lastTelemetry.current = telemetry
+      lastTelemetryTime.current = now
+      onTelemetry?.(telemetry)
+    }
 
     // ─── 3. CHARACTER MESH PLACEMENT & LEANING ───
     if (characterGroupRef.current) {
@@ -268,10 +271,11 @@ export function SnowSurferController({
         brushRef.current.wetness = activeSpell.brushWetness * mult
 
         // Trigger VR Controller Haptics while casting
-        if (rightGamepad) {
-          const actuators = rightGamepad.hapticActuators as any[]
-          if (actuators && actuators[0]) {
-            actuators[0].pulse(0.4, 30)
+        if (rightGamepad && now - lastHapticTime.current >= 60) {
+          const actuators = rightGamepad.hapticActuators
+          if (actuators?.[0]) {
+            lastHapticTime.current = now
+            void actuators[0].pulse(0.35, 35)
           }
         }
       } else if (speed > 0.5) {

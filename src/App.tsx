@@ -14,14 +14,24 @@ import { AVAILABLE_SPELLS, type SpellEffect } from './experiments/SpellManager'
 import { SnowTerrain, type BrushState } from './snow/SnowTerrain'
 import { DevOverlay } from './ui/DevOverlay'
 import { SpellBar } from './ui/SpellBar'
+import { updateCastingKeys, type SurferTelemetry } from './xr/inputState'
 import { SnowSurferController } from './xr/SnowSurferController'
 import { xrStore } from './xr/store'
 
 export function App() {
   const [activeSpell, setActiveSpell] = useState<SpellEffect>(AVAILABLE_SPELLS[0])
-  const [isCasting, setIsCasting] = useState<boolean>(false) // Default to FALSE - deliberate spell casting only!
-  const [isMouseDown, setIsMouseDown] = useState<boolean>(false)
+  const [desktopCasting, setDesktopCasting] = useState(false)
+  const [vrCasting, setVrCasting] = useState(false)
+  const [isOrbiting, setIsOrbiting] = useState(false)
+  const [telemetry, setTelemetry] = useState<SurferTelemetry>({
+    speed: 0,
+    carvingIntensity: 0,
+    isCasting: false,
+  })
   const [entryError, setEntryError] = useState<string | null>(null)
+  const castingKeysRef = useRef(new Set<string>())
+  const mouseCastingRef = useRef(false)
+  const isCasting = desktopCasting || vrCasting
 
   // Single mutable BrushState ref to prevent per-frame React re-renders!
   const brushRef = useRef<BrushState>({
@@ -38,36 +48,65 @@ export function App() {
   const [glintIntensity, setGlintIntensity] = useState<number>(2.5)
 
   useEffect(() => {
+    const syncDesktopCasting = () => {
+      setDesktopCasting(castingKeysRef.current.size > 0 || mouseCastingRef.current)
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const match = AVAILABLE_SPELLS.find((s) => s.key === e.key)
       if (match) setActiveSpell(match)
-      if (e.key === 'e' || e.key === 'E' || e.key === 'Shift') setIsCasting(true)
+      updateCastingKeys(castingKeysRef.current, e.key, true)
+      syncDesktopCasting()
     }
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'e' || e.key === 'E' || e.key === 'Shift') setIsCasting(false)
+      updateCastingKeys(castingKeysRef.current, e.key, false)
+      syncDesktopCasting()
     }
     const handleMouseDown = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLCanvasElement)) return
       if (e.button === 0) {
-        setIsMouseDown(true)
-        setIsCasting(true)
+        mouseCastingRef.current = true
+        syncDesktopCasting()
+      }
+      if (e.button === 2) {
+        setIsOrbiting(true)
       }
     }
     const handleMouseUp = (e: MouseEvent) => {
       if (e.button === 0) {
-        setIsMouseDown(false)
-        setIsCasting(false)
+        mouseCastingRef.current = false
+        syncDesktopCasting()
       }
+      if (e.button === 2) setIsOrbiting(false)
+    }
+    const handleContextMenu = (e: MouseEvent) => {
+      if (e.target instanceof HTMLCanvasElement) e.preventDefault()
+    }
+    const resetDesktopInput = () => {
+      castingKeysRef.current.clear()
+      mouseCastingRef.current = false
+      setDesktopCasting(false)
+      setIsOrbiting(false)
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') resetDesktopInput()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('contextmenu', handleContextMenu)
+    window.addEventListener('blur', resetDesktopInput)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('blur', resetDesktopInput)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
@@ -112,7 +151,7 @@ export function App() {
 
       <SpellBar activeSpell={activeSpell} onSelectSpell={setActiveSpell} />
 
-      <SnowAudioController speed={12} isCarving={isCasting} />
+      <SnowAudioController speed={telemetry.speed} carvingIntensity={telemetry.carvingIntensity} />
 
       {/* 3D WebXR Canvas */}
       <Canvas
@@ -138,10 +177,10 @@ export function App() {
             activeSpell={activeSpell}
             onSelectSpell={setActiveSpell}
             brushRef={brushRef}
-            followCamera={!isMouseDown}
-            isMouseDown={isMouseDown}
-            isCasting={isCasting}
-            setIsCasting={setIsCasting}
+            followCamera={!isOrbiting}
+            desktopCasting={desktopCasting}
+            onVrCastingChange={setVrCasting}
+            onTelemetry={setTelemetry}
           />
 
           <GPGPUSpellParticles
@@ -150,7 +189,7 @@ export function App() {
             isEmitting={isCasting}
           />
 
-          <OrbitControls enabled={isMouseDown} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={4} maxDistance={60} />
+          <OrbitControls enabled={isOrbiting} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={4} maxDistance={60} />
         </XR>
       </Canvas>
     </div>
