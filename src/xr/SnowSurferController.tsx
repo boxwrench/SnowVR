@@ -18,6 +18,7 @@ import {
   rebaseLoopCoordinate,
   stepLoopTransition,
 } from './loopTransition'
+import { getXrChaseYaw } from './chaseCamera'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
@@ -59,7 +60,7 @@ export function SnowSurferController({
 
   // VR 3rd-Person Origin Tracking
   const xrOriginPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 5, 8))
-  const xrOriginYaw = useRef<number>(0)
+  const xrOriginYaw = useRef<number>(getXrChaseYaw(0))
 
   // Last spell change timestamp for button debouncing
   const lastSpellChangeTime = useRef<number>(0)
@@ -328,7 +329,8 @@ export function SnowSurferController({
 
     if (session !== undefined) {
       xrOriginPos.current.lerp(targetCamPos, camDamp)
-      xrOriginYaw.current += (heading.current - xrOriginYaw.current) * camDamp
+      const targetXrYaw = getXrChaseYaw(heading.current)
+      xrOriginYaw.current += (targetXrYaw - xrOriginYaw.current) * camDamp
       if (xrOriginRef.current) {
         xrOriginRef.current.position.copy(xrOriginPos.current)
         xrOriginRef.current.rotation.y = xrOriginYaw.current
@@ -343,7 +345,11 @@ export function SnowSurferController({
     <>
       {/* 3rd-Person Horizon-Stable VR Camera Origin Tracking */}
       {session !== undefined && (
-        <XROrigin ref={xrOriginRef} position={[0, 3, 6]} />
+        <XROrigin
+          ref={xrOriginRef}
+          position={[0, 3, 6]}
+          rotation={[0, getXrChaseYaw(0), 0]}
+        />
       )}
 
       {/* Camera-following whiteout masks the instant terrain-loop rebase in desktop and XR. */}

@@ -20,6 +20,23 @@ export const INITIAL_PERFORMANCE_STATS: PerformanceStats = {
   isPresenting: false,
 }
 
+let latestPerformanceStats = INITIAL_PERFORMANCE_STATS
+const performanceStatsListeners = new Set<() => void>()
+
+export function getPerformanceStatsSnapshot(): PerformanceStats {
+  return latestPerformanceStats
+}
+
+export function publishPerformanceStats(stats: PerformanceStats): void {
+  latestPerformanceStats = stats
+  performanceStatsListeners.forEach((listener) => listener())
+}
+
+export function subscribePerformanceStats(listener: () => void): () => void {
+  performanceStatsListeners.add(listener)
+  return () => performanceStatsListeners.delete(listener)
+}
+
 export function summarizeFrameTimes(frameTimesMs: readonly number[]): {
   fps: number
   averageFrameMs: number

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { withPreservedRenderTarget } from '../rendering/renderTargetState'
 import { getReferenceFrameScale } from './simulationTiming'
 
 // High-fidelity FBO ping-pong compute shader: 4-channel surface state (R=depth, G=berm/height, B=ice, A=wetness)
@@ -163,9 +164,10 @@ export class SnowDeformationBuffer {
     this.simMaterial.uniforms.uDeltaTime.value = Math.min(deltaTime, 0.05)
     this.simMaterial.uniforms.uFrameScale.value = getReferenceFrameScale(deltaTime)
 
-    renderer.setRenderTarget(writeTarget)
-    renderer.render(this.simScene, this.simCamera)
-    renderer.setRenderTarget(null)
+    withPreservedRenderTarget(renderer, () => {
+      renderer.setRenderTarget(writeTarget)
+      renderer.render(this.simScene, this.simCamera)
+    })
 
     this.isA = !this.isA
   }

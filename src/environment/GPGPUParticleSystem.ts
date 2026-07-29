@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { withPreservedRenderTarget } from '../rendering/renderTargetState'
 import { referenceProbabilityToFrameProbability } from '../snow/simulationTiming'
 
 /**
@@ -417,19 +418,19 @@ export class GPGPUParticleSystem {
       mat.uniforms.uTime.value = time
     }
 
-    // Pass 1: Update state1 (posXZ, velXZ)
-    syncUniforms(this.simMaterial1)
-    this.simMesh.material = this.simMaterial1
-    renderer.setRenderTarget(writeState1)
-    renderer.render(this.simScene, this.simCamera)
+    withPreservedRenderTarget(renderer, () => {
+      // Pass 1: Update state1 (posXZ, velXZ)
+      syncUniforms(this.simMaterial1)
+      this.simMesh.material = this.simMaterial1
+      renderer.setRenderTarget(writeState1)
+      renderer.render(this.simScene, this.simCamera)
 
-    // Pass 2: Update state2 (posY, velY, life, maxLife)
-    syncUniforms(this.simMaterial2)
-    this.simMesh.material = this.simMaterial2
-    renderer.setRenderTarget(writeState2)
-    renderer.render(this.simScene, this.simCamera)
-
-    renderer.setRenderTarget(null)
+      // Pass 2: Update state2 (posY, velY, life, maxLife)
+      syncUniforms(this.simMaterial2)
+      this.simMesh.material = this.simMaterial2
+      renderer.setRenderTarget(writeState2)
+      renderer.render(this.simScene, this.simCamera)
+    })
 
     // Swap read/write targets
     this.isA = !this.isA

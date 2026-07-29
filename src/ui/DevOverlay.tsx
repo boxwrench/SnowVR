@@ -1,5 +1,8 @@
-import { useState } from 'react'
-import type { PerformanceStats } from '../xr/performanceStats'
+import { useState, useSyncExternalStore } from 'react'
+import {
+  getPerformanceStatsSnapshot,
+  subscribePerformanceStats,
+} from '../xr/performanceStats'
 
 interface DevOverlayProps {
   readonly windDecay: number
@@ -8,7 +11,6 @@ interface DevOverlayProps {
   readonly setGlintScale: (v: number) => void
   readonly glintIntensity: number
   readonly setGlintIntensity: (v: number) => void
-  readonly stats: PerformanceStats
 }
 
 export function DevOverlay({
@@ -18,8 +20,12 @@ export function DevOverlay({
   setGlintScale,
   glintIntensity,
   setGlintIntensity,
-  stats,
 }: DevOverlayProps) {
+  const stats = useSyncExternalStore(
+    subscribePerformanceStats,
+    getPerformanceStatsSnapshot,
+    getPerformanceStatsSnapshot,
+  )
   const [showDevPanel, setShowDevPanel] = useState(
     () => new URLSearchParams(window.location.search).get('dev') === '1',
   )

@@ -15,14 +15,23 @@ import { SnowTerrain, type BrushState } from './snow/SnowTerrain'
 import { DevOverlay } from './ui/DevOverlay'
 import { SpellBar } from './ui/SpellBar'
 import { updateCastingKeys, type SurferTelemetry } from './xr/inputState'
-import {
-  INITIAL_PERFORMANCE_STATS,
-  type PerformanceStats,
-} from './xr/performanceStats'
+import { publishPerformanceStats } from './xr/performanceStats'
 import { SnowSurferController } from './xr/SnowSurferController'
 import { xrStore } from './xr/store'
 import { XRPerformanceMonitor } from './xr/XRPerformanceMonitor'
 import { XRStatusPanel } from './xr/XRStatusPanel'
+
+const CAMERA_CONFIG = {
+  position: [0, 10, 18] as [number, number, number],
+  fov: 50,
+}
+const RENDERER_CONFIG = {
+  antialias: true,
+  alpha: false,
+  toneMapping: THREE.ACESFilmicToneMapping,
+  toneMappingExposure: 1.15,
+}
+const PIXEL_RATIO_RANGE: [number, number] = [1, 1.25]
 
 export function App() {
   const [activeSpell, setActiveSpell] = useState<SpellEffect>(AVAILABLE_SPELLS[0])
@@ -35,9 +44,6 @@ export function App() {
     isCasting: false,
   })
   const [entryError, setEntryError] = useState<string | null>(null)
-  const [performanceStats, setPerformanceStats] = useState<PerformanceStats>(
-    INITIAL_PERFORMANCE_STATS,
-  )
   const castingKeysRef = useRef(new Set<string>())
   const mouseCastingRef = useRef(false)
   const riderPositionRef = useRef(new THREE.Vector3())
@@ -158,7 +164,6 @@ export function App() {
         setGlintScale={setGlintScale}
         glintIntensity={glintIntensity}
         setGlintIntensity={setGlintIntensity}
-        stats={performanceStats}
       />
 
       <SpellBar activeSpell={activeSpell} onSelectSpell={setActiveSpell} />
@@ -167,9 +172,9 @@ export function App() {
 
       {/* 3D WebXR Canvas */}
       <Canvas
-        camera={{ position: [0, 10, 18], fov: 50 }}
-        gl={{ antialias: true, alpha: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
-        dpr={[1, 1.25]}
+        camera={CAMERA_CONFIG}
+        gl={RENDERER_CONFIG}
+        dpr={PIXEL_RATIO_RANGE}
         shadows={false}
       >
         <XR store={xrStore}>
@@ -205,7 +210,7 @@ export function App() {
 
           <XRPerformanceMonitor
             showInHeadset={showXrDevPanel}
-            onStats={setPerformanceStats}
+            onStats={publishPerformanceStats}
           />
 
           <GPGPUSpellParticles
