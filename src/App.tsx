@@ -23,6 +23,7 @@ export function App() {
   const [brushBerm, setBrushBerm] = useState<number>(1.2)
   const [brushIce, setBrushIce] = useState<number>(0)
   const [brushWetness, setBrushWetness] = useState<number>(0)
+  const [isCasting, setIsCasting] = useState<boolean>(true) // Default active casting while riding
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false)
   const [entryError, setEntryError] = useState<string | null>(null)
 
@@ -40,21 +41,27 @@ export function App() {
       wetness: number
     ) => {
       setBrushPos(pos)
-      setBrushDepth(depth)
+      // Active spell stream casting
+      setBrushDepth(isCasting ? depth : 0)
       setBrushBerm(berm)
-      setBrushIce(ice)
-      setBrushWetness(wetness)
+      setBrushIce(isCasting ? ice : 0)
+      setBrushWetness(isCasting ? wetness : 0)
     },
-    []
+    [isCasting]
   )
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const match = AVAILABLE_SPELLS.find((s) => s.key === e.key)
       if (match) setActiveSpell(match)
+      // Toggle or hold cast with E / Shift / Space
+      if (e.key === 'e' || e.key === 'E' || e.key === 'Shift') setIsCasting(true)
     }
     const handleMouseDown = (e: MouseEvent) => {
-      if (e.button === 0) setIsMouseDown(true)
+      if (e.button === 0) {
+        setIsMouseDown(true)
+        setIsCasting(true)
+      }
     }
     const handleMouseUp = (e: MouseEvent) => {
       if (e.button === 0) setIsMouseDown(false)
@@ -84,14 +91,16 @@ export function App() {
     <div className="app-container">
       {/* Glassmorphic UI Overlays */}
       <header className="overlay-panel header-overlay">
-        <h1 className="header-title">SnowVR Surfer Engine</h1>
+        <h1 className="header-title">SnowVR Controls</h1>
         <p className="header-subtitle">
-          Speed around the 120m arctic snowfield with high-velocity banking, snow carving, and dynamic spell effects.
+          Ride your snowboard and cast elemental spells across the 120m arctic snowfield!
         </p>
-        <p style={{ fontSize: '0.8rem', color: '#74d7ee' }}>
-          🏎️ <b>WASD / Arrows:</b> Speed & Steer Surfer | <b>Space:</b> Speed Boost <br />
-          🖱️ <b>Right Click & Drag:</b> Orbit Camera | <b>Keys 1-5:</b> Switch Spells
-        </p>
+        <div style={{ fontSize: '0.82rem', color: '#74d7ee', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div>⌨️ <b>Keys 1 to 5:</b> Select Active Spell (Carver, Hydro Jet, Frost Spire, Melt, Vortex)</div>
+          <div>🏎️ <b>WASD / Arrows:</b> Ride & Steer Snowboard (Space = Speed Boost!)</div>
+          <div>✨ <b>Left Click (or Shift / E):</b> Fire Active Spell Stream & Deform Snow</div>
+          <div>🖱️ <b>Right Click & Drag:</b> Orbit Camera</div>
+        </div>
         <button type="button" className="enter-vr-btn" onClick={enterVr}>
           <span>🥽</span> Enter VR
         </button>
@@ -141,7 +150,7 @@ export function App() {
           <SpellParticleSystem
             activeSpell={activeSpell}
             brushPos={brushPos}
-            isEmitting={true}
+            isEmitting={isCasting}
           />
 
           <CinematicPostProcessing />
