@@ -23,7 +23,7 @@ export function App() {
   const [brushBerm, setBrushBerm] = useState<number>(1.2)
   const [brushIce, setBrushIce] = useState<number>(0)
   const [brushWetness, setBrushWetness] = useState<number>(0)
-  const [isCasting, setIsCasting] = useState<boolean>(true) // Default active casting while riding
+  const [isCasting, setIsCasting] = useState<boolean>(true)
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false)
   const [entryError, setEntryError] = useState<string | null>(null)
 
@@ -41,7 +41,6 @@ export function App() {
       wetness: number
     ) => {
       setBrushPos(pos)
-      // Active spell stream casting
       setBrushDepth(isCasting ? depth : 0)
       setBrushBerm(berm)
       setBrushIce(isCasting ? ice : 0)
@@ -54,7 +53,6 @@ export function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const match = AVAILABLE_SPELLS.find((s) => s.key === e.key)
       if (match) setActiveSpell(match)
-      // Toggle or hold cast with E / Shift / Space
       if (e.key === 'e' || e.key === 'E' || e.key === 'Shift') setIsCasting(true)
     }
     const handleMouseDown = (e: MouseEvent) => {
@@ -126,6 +124,7 @@ export function App() {
         shadows
       >
         <XR store={xrStore}>
+          <ambientLight intensity={0.8} color="#e0f2fe" />
           <Atmosphere />
           <DistantMountains />
           <FallingSnowParticles count={3000} />
