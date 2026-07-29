@@ -13,6 +13,11 @@ import {
   updateMovementKey,
   type SurferTelemetry,
 } from './inputState'
+import {
+  createLoopTransitionState,
+  rebaseLoopCoordinate,
+  stepLoopTransition,
+} from './loopTransition'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
@@ -33,7 +38,7 @@ export function SnowSurferController({
   onVrCastingChange,
   onTelemetry,
 }: SnowSurferControllerProps) {
-  const { camera, pointer, raycaster, scene } = useThree()
+  const { camera, pointer, raycaster } = useThree()
   const session = useXR((state) => state.session)
 
   // XR Controller inputs
@@ -45,7 +50,7 @@ export function SnowSurferController({
   const velocity = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
   const heading = useRef<number>(0) // Yaw angle in radians
   const bankRoll = useRef<number>(0) // Roll angle for turning lean
-  const blizzardProgress = useRef<number>(0)
+  const loopTransition = useRef(createLoopTransitionState())
 
   // Aiming Target Position
   const aimTargetPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
@@ -68,6 +73,8 @@ export function SnowSurferController({
   const boardGroupRef = useRef<THREE.Group>(null)
   const xrOriginRef = useRef<THREE.Group>(null)
   const aimReticleRef = useRef<THREE.Group>(null)
+  const transitionVeilRef = useRef<THREE.Mesh>(null)
+  const transitionVeilMaterialRef = useRef<THREE.MeshBasicMaterial>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -169,18 +176,26 @@ export function SnowSurferController({
     position.current.addScaledVector(velocity.current, dt)
     position.current.x = THREE.MathUtils.clamp(position.current.x, -56, 56)
 
-    // Continuous Endless Downhill Loop with Blizzard Transition
-    if (position.current.z > 50) {
-      position.current.z -= 80
-      blizzardProgress.current = 1.0
-    }
-
-    if (blizzardProgress.current > 0) {
-      blizzardProgress.current = Math.max(0, blizzardProgress.current - dt * 2.0)
-      if (scene.fog && scene.fog instanceof THREE.Fog) {
-        scene.fog.near = THREE.MathUtils.lerp(50, 5, blizzardProgress.current)
-        scene.fog.far = THREE.MathUtils.lerp(140, 20, blizzardProgress.current)
+    // Mask the endless-run coordinate rebase before it happens.
+    const transition = stepLoopTransition(loopTransition.current, dt, position.current.z)
+    loopTransition.current = transition.state
+    if (transition.shouldRebase) {
+      position.current.z = rebaseLoopCoordinate(position.current.z)
+      if (session !== undefined) {
+        xrOriginPos.current.z = rebaseLoopCoordinate(xrOriginPos.current.z)
+        if (xrOriginRef.current) {
+          xrOriginRef.current.position.z = rebaseLoopCoordinate(xrOriginRef.current.position.z)
+        }
+      } else {
+        camera.position.z = rebaseLoopCoordinate(camera.position.z)
       }
+    }
+    if (transitionVeilMaterialRef.current) {
+      transitionVeilMaterialRef.current.opacity = transition.opacity
+    }
+    if (transitionVeilRef.current) {
+      transitionVeilRef.current.visible = transition.opacity > 0
+      camera.getWorldPosition(transitionVeilRef.current.position)
     }
 
     // Ground position Y to terrain elevation
@@ -327,6 +342,26 @@ export function SnowSurferController({
       {session !== undefined && (
         <XROrigin ref={xrOriginRef} position={[0, 3, 6]} />
       )}
+
+      {/* Camera-following whiteout masks the instant terrain-loop rebase in desktop and XR. */}
+      <mesh
+        ref={transitionVeilRef}
+        frustumCulled={false}
+        renderOrder={10000}
+        visible={false}
+      >
+        <sphereGeometry args={[0.35, 16, 12]} />
+        <meshBasicMaterial
+          ref={transitionVeilMaterialRef}
+          color="#dff5ff"
+          side={THREE.BackSide}
+          transparent
+          opacity={0}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
 
       {/* Independent Spell Aim Reticle & Targeted Caster Light */}
       <group ref={aimReticleRef} position={[0, 0.1, 0]}>
