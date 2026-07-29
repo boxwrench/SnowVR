@@ -1,8 +1,16 @@
 # SnowVR ❄️🏂
 
-**SnowVR** is a WebXR procedural snow rendering and downhill snowboarding interaction sandbox targeting 72 FPS on Meta Quest 3. Ride a snowboard down an arctic snowfield, carve dynamic tracks into GPU-driven deformable terrain, and cast elemental spells using Quest VR controllers or desktop inputs.
+**SnowVR** is an AI-assisted WebXR procedural snow rendering and downhill interaction sandbox built as a hands-on learning tool. It explores real-time GPU-driven snow deformation, WebXR performance optimization, and controller-first VR interactions targeting 72 FPS on Meta Quest 3.
 
 **🌐 Live Demo:** [`https://boxwrench.github.io/SnowVR/`](https://boxwrench.github.io/SnowVR/)
+
+---
+
+## 💡 Inspiration & Acknowledgments
+
+SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://github.com/Noniv) and their project [**`Noniv/snowflow_demo`**](https://github.com/Noniv/snowflow_demo) (released under the [MIT License](https://github.com/Noniv/snowflow_demo/blob/main/LICENSE)). 
+
+`snowflow_demo` demonstrated state-of-the-art procedural WebGPU snow rendering, multi-channel toroidal FBO deformation, anisotropic slump diffusion, and elemental landscape manipulation without pre-authored texture or mesh assets. SnowVR adapts these concepts into a 3rd-person WebXR VR experience tailored for Meta Quest 3 using Three.js and React Three Fiber.
 
 ---
 
@@ -18,7 +26,7 @@
 | **Left Grip / Trigger** | Speed boost (16 → 28 m/s / ~62 mph) |
 | **Haptics** | Tactile feedback on carving and spell casting |
 
-### Desktop
+### Desktop Sandbox
 | Input | Action |
 |-------|--------|
 | **W / S / ↑ / ↓** | Accelerate / Reverse |
@@ -30,11 +38,11 @@
 
 ---
 
-## 🔮 Spells
+## 🔮 Elemental Spells
 
 | Key | Spell | Effect |
 |-----|-------|--------|
-| 1 | **Snow Carver** | Precision wake with twin side-berms |
+| 1 | **Snow Carver** | Precision narrow wake with twin side-berms |
 | 2 | **Hydro Stream** | High-pressure water jet that cuts fluid trenches and saturates wet slush |
 | 3 | **Frost Spire** | Freezes crystalline ice columns rising out of the snow |
 | 4 | **Thermal Melt** | Melts deep smooth trenches into reflective wet slush pools |
@@ -42,18 +50,20 @@
 
 ---
 
-## 🌟 Quest 3 Technical Architecture
+## 🏗️ Technical Architecture
 
-* **Controller-First WebXR Experience:** Full support for Quest 3 thumbstick steering, ray aiming, trigger casting, button spell switching, and haptic feedback.
-* **Controller-Only Downhill Run:** Continuous downhill slope along +Z with seamless position wrapping.
-* **Grounded Physics & Shared Terrain Elevation:** Shared CPU/GPU terrain noise function (`terrainMath.ts`) grounds board, rider, reticle, and particle emitters.
-* **1024² Toroidal Snow Deformation Buffer:** Ping-pong render targets tracking 4 surface channels:
-  * **R:** Trench depression depth
-  * **G:** Displaced berm/spire height
-  * **B:** Hard ice compression
-  * **A:** Water slush saturation
-* **Web Audio Sound Effects:** Procedural wind and snow carving scrape audio generated dynamically via Web Audio API.
-* **Quest 3 Performance Overlay:** Real-time FPS, frame time (ms), and target indicator (72 FPS). Developer tuning controls accessible via `?dev=1`.
+- **WebXR & Quest 3 Native FFR:** Uses Meta Quest Browser's native Fixed Foveated Rendering (`gl.xr.setFoveation(0.5)`) to optimize stereo GPU rendering headroom.
+- **Toroidal Snow Deformation FBO:** 1024² ping-pong `RGBA16F` half-float render targets tracking 4 surface channels:
+  - **R (Depression):** Trench depth & impact craters
+  - **G (Displaced Mass):** Raised side-berms, Frost Spires, and Vortex Mountains
+  - **B (Ice):** Hard ice compression
+  - **A (Wetness):** Slush saturation with wind drying & slump relaxation
+- **Grounded Physics & Shared Elevation Math:** Shared CPU/GPU elevation module (`src/snow/terrainMath.ts`) grounds rider position, reticle Y, and particle emitters on the displaced terrain surface.
+- **3rd-Person VR Chase Rig:** Trailing horizon-stable camera tracking (`<XROrigin>`) following rider position and heading smoothly while preserving free 360° VR head-look.
+- **Adaptive GPGPU Particles:** GPU-driven ping-pong particle system (`GPGPUParticleSystem.ts`) budgeted to 4,096 active particles with automatic idle pause during normal riding.
+- **Zero-Asset Web Audio:** Procedural Web Audio synthesis (`SnowAudioController.tsx`) generating wind hiss and board scrape audio based on velocity.
+- **Instanced Slalom Gates:** Single-draw-call instanced slalom poles (`SlalomPoles.tsx`) every 18m for immediate visual scale and speed anchors.
+- **Performance Monitoring:** Real-time FPS, frame time (ms), and native FFR stats overlay (`DevOverlay.tsx`). Developer tuning controls toggled via `?dev=1`.
 
 ---
 
@@ -75,13 +85,7 @@ npm run build       # Production build
 
 ---
 
-## 🌐 Deployment
-
-Automated GitHub Actions workflow deploys to GitHub Pages on every push to `main` (`.github/workflows/deploy.yml`).
-
----
-
-## 🛠️ Built With
+## 🛠️ Tech Stack
 
 * **React 19** & **TypeScript 5.6**
 * **Three.js 0.165.0** & **React Three Fiber 9.0**
@@ -92,4 +96,5 @@ Automated GitHub Actions workflow deploys to GitHub Pages on every push to `main
 
 ## 📜 License
 
-Licensed under the [MIT License](LICENSE).
+This project is open-source under the [MIT License](LICENSE).
+Attribution to [Noniv/snowflow_demo](https://github.com/Noniv/snowflow_demo) (MIT License) for procedural snow deformation and spell design inspiration.
