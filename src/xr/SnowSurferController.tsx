@@ -47,6 +47,7 @@ export function SnowSurferController({
 
   const characterGroupRef = useRef<THREE.Group>(null)
   const boardGroupRef = useRef<THREE.Group>(null)
+  const liquidStreamRef = useRef<THREE.Mesh>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,25 +75,25 @@ export function SnowSurferController({
   }, [])
 
   useFrame((_, delta) => {
-    // 1. Steering & Acceleration Logic
-    const turnSpeed = 2.4 * delta
-    const maxSpeed = keys.current.boost ? 22.0 : 14.0
-    const accelRate = (keys.current.boost ? 25.0 : 16.0) * delta
-    const friction = 0.94
+    // 1. High-Speed Steering & Acceleration Logic (Hyper-speed up to 65 m/s)
+    const turnSpeed = 3.2 * delta
+    const maxSpeed = keys.current.boost ? 65.0 : 38.0
+    const accelRate = (keys.current.boost ? 65.0 : 42.0) * delta
+    const friction = 0.965
 
     let targetBank = 0
 
     if (keys.current.left) {
       heading.current += turnSpeed
-      targetBank = -0.35 // Lean left
+      targetBank = -0.42 // Deep turn lean
     }
     if (keys.current.right) {
       heading.current -= turnSpeed
-      targetBank = 0.35 // Lean right
+      targetBank = 0.42 // Deep turn lean
     }
 
     // Smooth leaning interpolation
-    bankRoll.current += (targetBank - bankRoll.current) * 8.0 * delta
+    bankRoll.current += (targetBank - bankRoll.current) * 10.0 * delta
 
     // Forward/Backward acceleration
     const moveDir = new THREE.Vector3(
@@ -115,8 +116,8 @@ export function SnowSurferController({
 
     // Update 3D position (keep within 120m terrain bounds)
     position.current.addScaledVector(velocity.current, delta)
-    position.current.x = THREE.MathUtils.clamp(position.current.x, -55, 55)
-    position.current.z = THREE.MathUtils.clamp(position.current.z, -55, 55)
+    position.current.x = THREE.MathUtils.clamp(position.current.x, -56, 56)
+    position.current.z = THREE.MathUtils.clamp(position.current.z, -56, 56)
 
     const speed = velocity.current.length()
 
@@ -129,70 +130,90 @@ export function SnowSurferController({
       boardGroupRef.current.rotation.z = bankRoll.current
     }
 
-    // 3. Continuous Snow Carving into FBO State Buffer
+    // 3. Continuous Sleek Snow Carving & Liquid Stream Deformation
     if (speed > 0.5) {
       const brushVec = new THREE.Vector3(
         position.current.x,
         position.current.z,
-        activeSpell.brushRadius * (1.0 + speed * 0.04)
+        activeSpell.brushRadius * (1.0 + speed * 0.015)
       )
       
       onBrushUpdate(
         brushVec,
-        activeSpell.brushDepth * (0.8 + speed * 0.05),
-        activeSpell.brushBerm * (1.0 + Math.abs(bankRoll.current) * 1.5), // Carving hard turns piles higher side berms!
+        activeSpell.brushDepth * 0.4, // Lowered carve depth for sleek grooves
+        activeSpell.brushBerm * 0.45 * (1.0 + Math.abs(bankRoll.current) * 1.2), // Lowered berm height
         activeSpell.brushIce,
         activeSpell.brushWetness
       )
     }
 
-    // 4. Smooth Third-Person Follow Camera (in Desktop / non-VR mode)
+    // 4. Hyper-Speed Third-Person Follow Camera (in Desktop mode)
     if (followCamera && session === undefined && speed > 0.2) {
+      const camDist = 7.0 + speed * 0.08
+      const camHeight = 3.8 + speed * 0.03
       const camOffset = new THREE.Vector3(
-        -Math.sin(heading.current) * 8.0,
-        4.5,
-        -Math.cos(heading.current) * 8.0
+        -Math.sin(heading.current) * camDist,
+        camHeight,
+        -Math.cos(heading.current) * camDist
       )
       const targetCamPos = position.current.clone().add(camOffset)
-      camera.position.lerp(targetCamPos, 0.08)
-      camera.lookAt(position.current.x, 1.2, position.current.z)
+      camera.position.lerp(targetCamPos, 0.12)
+      camera.lookAt(position.current.x, 1.0, position.current.z)
     }
   })
 
   return (
     <group ref={characterGroupRef} position={[0, 0, 0]}>
       {/* Dynamic Carving SSS Light under the board */}
-      <pointLight color={activeSpell.color} intensity={4.5} distance={8} decay={2} position={[0, 0.4, 0]} />
+      <pointLight color={activeSpell.color} intensity={5.0} distance={9} decay={2} position={[0, 0.4, 0]} />
+
+      {/* Hydro Stream Liquid Water Jet Beam */}
+      {activeSpell.vfxType === 'liquid_stream' && (
+        <group position={[0, 1.0, 0.5]}>
+          <mesh ref={liquidStreamRef} rotation={[Math.PI / 4, 0, 0]} position={[0, -0.4, 1.2]}>
+            <cylinderGeometry args={[0.08, 0.35, 3.2, 16]} />
+            <meshStandardMaterial
+              color="#38bdf8"
+              emissive="#0284c7"
+              emissiveIntensity={2.5}
+              roughness={0.05}
+              transparent
+              opacity={0.85}
+            />
+          </mesh>
+          <pointLight color="#38bdf8" intensity={6.0} distance={7} position={[0, -0.6, 2.2]} />
+        </group>
+      )}
 
       <group ref={boardGroupRef}>
         {/* Snow Craft Board */}
         <mesh position={[0, 0.1, 0]}>
-          <boxGeometry args={[0.5, 0.08, 2.2]} />
-          <meshStandardMaterial color="#1a202c" roughness={0.2} metalness={0.8} />
+          <boxGeometry args={[0.5, 0.08, 2.4]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.15} metalness={0.85} />
         </mesh>
 
         {/* Board Energy Deck Stripe */}
         <mesh position={[0, 0.15, 0]}>
-          <boxGeometry args={[0.3, 0.02, 1.8]} />
-          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.0} />
+          <boxGeometry args={[0.32, 0.02, 2.0]} />
+          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.5} />
         </mesh>
 
         {/* Third-Person Surfer Character Body */}
         <mesh position={[0, 1.1, 0]}>
           <capsuleGeometry args={[0.3, 0.8, 8, 16]} />
-          <meshStandardMaterial color="#2563eb" roughness={0.4} />
+          <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.4} />
         </mesh>
 
         {/* Character Goggles / Headpiece */}
         <mesh position={[0, 1.5, 0.2]}>
           <sphereGeometry args={[0.22, 16, 16]} />
-          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={1.5} />
+          <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.0} />
         </mesh>
       </group>
 
       {/* Surfer Carving Contact Ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-        <ringGeometry args={[activeSpell.brushRadius * 0.7, activeSpell.brushRadius * 1.2, 32]} />
+        <ringGeometry args={[activeSpell.brushRadius * 0.6, activeSpell.brushRadius * 1.1, 32]} />
         <meshBasicMaterial color={activeSpell.color} transparent opacity={0.6} side={THREE.DoubleSide} />
       </mesh>
     </group>

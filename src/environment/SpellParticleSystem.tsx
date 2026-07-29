@@ -15,7 +15,7 @@ export function SpellParticleSystem({
   isEmitting,
 }: SpellParticleProps) {
   const pointsRef = useRef<THREE.Points>(null)
-  const count = 300
+  const count = 500
 
   const [positions, velocities, ages] = useMemo(() => {
     const pos = new Float32Array(count * 3)
@@ -27,9 +27,9 @@ export function SpellParticleSystem({
       pos[i * 3 + 1] = 999
       pos[i * 3 + 2] = 999
 
-      vel[i * 3 + 0] = (Math.random() - 0.5) * 2.0
-      vel[i * 3 + 1] = Math.random() * 2.5 + 0.5
-      vel[i * 3 + 2] = (Math.random() - 0.5) * 2.0
+      vel[i * 3 + 0] = (Math.random() - 0.5) * 3.0
+      vel[i * 3 + 1] = Math.random() * 3.0 + 0.5
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 3.0
 
       age[i] = 99
     }
@@ -42,18 +42,24 @@ export function SpellParticleSystem({
     const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute
     const posArray = posAttr.array as Float32Array
 
-    // Emit new particles while drawing
+    // Emit new particles while drawing or moving
     if (isEmitting && brushPos.x < 100) {
-      for (let i = 0; i < 5; i++) {
+      const burstCount = activeSpell.vfxType === 'liquid_stream' ? 12 : 6
+      for (let i = 0; i < burstCount; i++) {
         const idx = Math.floor(Math.random() * count)
-        posArray[idx * 3 + 0] = brushPos.x + (Math.random() - 0.5) * activeSpell.brushRadius
-        posArray[idx * 3 + 1] = 0.2
-        posArray[idx * 3 + 2] = brushPos.z + (Math.random() - 0.5) * activeSpell.brushRadius
+        posArray[idx * 3 + 0] = brushPos.x + (Math.random() - 0.5) * activeSpell.brushRadius * 1.5
+        posArray[idx * 3 + 1] = activeSpell.vfxType === 'liquid_stream' ? 0.4 : 0.2
+        posArray[idx * 3 + 2] = brushPos.z + (Math.random() - 0.5) * activeSpell.brushRadius * 1.5
 
-        if (activeSpell.vfxType === 'thermal') {
-          velocities[idx * 3 + 1] = Math.random() * 1.5 + 1.0 // Steam rises
+        if (activeSpell.vfxType === 'liquid_stream') {
+          // Liquid Stream Water Splash Droplets
+          velocities[idx * 3 + 0] = (Math.random() - 0.5) * 4.5
+          velocities[idx * 3 + 1] = Math.random() * 3.5 + 1.2 // Water splash jet
+          velocities[idx * 3 + 2] = (Math.random() - 0.5) * 4.5
+        } else if (activeSpell.vfxType === 'thermal') {
+          velocities[idx * 3 + 1] = Math.random() * 2.0 + 1.0 // Steam rises
         } else {
-          velocities[idx * 3 + 1] = Math.random() * 2.5 + 0.5 // Water spray
+          velocities[idx * 3 + 1] = Math.random() * 2.5 + 0.5 // Snow wake spray
         }
 
         ages[idx] = 0
@@ -67,7 +73,7 @@ export function SpellParticleSystem({
         posArray[i * 3 + 0] += velocities[i * 3 + 0] * delta
         posArray[i * 3 + 1] += velocities[i * 3 + 1] * delta
         posArray[i * 3 + 2] += velocities[i * 3 + 2] * delta
-        velocities[i * 3 + 1] -= 2.0 * delta // Gravity
+        velocities[i * 3 + 1] -= 3.5 * delta // Gravity
       } else {
         posArray[i * 3 + 1] = -999 // Hide
       }
@@ -85,10 +91,10 @@ export function SpellParticleSystem({
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.12}
+        size={activeSpell.vfxType === 'liquid_stream' ? 0.16 : 0.12}
         color={activeSpell.color}
         transparent
-        opacity={0.85}
+        opacity={0.9}
         depthWrite={false}
       />
     </points>
