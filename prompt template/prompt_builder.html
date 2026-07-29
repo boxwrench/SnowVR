@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AAA Biome Tech Demo — Prompt Architect & Generator</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090b10;
+      --bg-card: #121622;
+      --bg-card-hover: #1a2030;
+      --border-color: #232d42;
+      --border-focus: #4f46e5;
+      --accent-primary: #6366f1;
+      --accent-secondary: #ec4899;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-code: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Controls & Wizard */
+    .builder-pane {
+      width: 55%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border-color);
+      background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%);
+    }
+
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(18, 22, 34, 0.8);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo-area h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-area p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      border-radius: 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* Preset Selection Bar */
+    .presets-bar {
+      padding: 1rem 2rem;
+      background: rgba(18, 22, 34, 0.4);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      overflow-x: auto;
+    }
+
+    .presets-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .preset-chip {
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-size: 0.825rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .preset-chip:hover {
+      border-color: var(--accent-primary);
+      background: var(--bg-card-hover);
+      transform: translateY(-1px);
+    }
+
+    .preset-chip.active {
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.15);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    /* Step Navigation Tabs */
+    .step-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(18, 22, 34, 0.6);
+      overflow-x: auto;
+    }
+
+    .step-tab {
+      padding: 0.85rem 1.25rem;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step-tab:hover {
+      color: var(--text-main);
+    }
+
+    .step-tab.active {
+      color: var(--accent-primary);
+      border-bottom-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .step-tab .step-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-tab.active .step-num {
+      background: var(--accent-primary);
+      color: #fff;
+    }
+
+    /* Form Container */
+    .form-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+
+    .form-step {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .form-step.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .section-header p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .field-group {
+      margin-bottom: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .field-group:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .field-label label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .field-label .placeholder-tag {
+      font-family: var(--font-code);
+      font-size: 0.725rem;
+      color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .field-help {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .field-help code {
+      font-family: var(--font-code);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #e2e8f0;
+    }
+
+    input[type="text"], textarea, select {
+      width: 100%;
+      background: #0d111a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      border-color: var(--accent-primary);
+      background: #111624;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+
+    /* Grid for side-by-side inputs */
+    .input-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Right Preview Pane */
+    .preview-pane {
+      width: 45%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #0b0e14;
+    }
+
+    .preview-header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(18, 22, 34, 0.8);
+      backdrop-filter: blur(12px);
+    }
+
+    .preview-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: #4f46e5;
+      transform: translateY(-1px);
+    }
+
+    .preview-body {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    pre.markdown-preview {
+      font-family: var(--font-code);
+      font-size: 0.825rem;
+      line-height: 1.6;
+      color: #d1d5db;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #06080c;
+      padding: 1.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Verification Box Footer */
+    .verifier-bar {
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .verifier-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .verifier-info strong {
+      color: var(--text-main);
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* Tooltip / Hint Pill */
+    .pro-tip {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.825rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT: BUILDER PANE -->
+  <div class="builder-pane">
+    <header>
+      <div class="logo-area">
+        <h1>⚡ Biome Prompt Architect</h1>
+        <p>Generate production-grade WebGPU tech demo briefs</p>
+      </div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btn-noob" onclick="setMode('noob')">⚡ Smart Defaults</button>
+        <button class="mode-btn" id="btn-savvy" onclick="setMode('savvy')">🛠️ Expert Mode</button>
+      </div>
+    </header>
+
+    <!-- PRESET SELECTOR -->
+    <div class="presets-bar">
+      <span class="presets-title">Biomes:</span>
+      <div class="preset-chip active" onclick="loadPreset('desert')">🐪 Desert Dune</div>
+      <div class="preset-chip" onclick="loadPreset('volcanic')">🌋 Volcanic Lava</div>
+      <div class="preset-chip" onclick="loadPreset('ocean')">🌊 Ocean Storm</div>
+      <div class="preset-chip" onclick="loadPreset('forest')">🌲 Mystic Forest</div>
+      <div class="preset-chip" onclick="loadPreset('alien')">👽 Alien World</div>
+      <div class="preset-chip" onclick="loadPreset('snow')">❄️ Alpine Snow</div>
+    </div>
+
+    <!-- STEP TABS -->
+    <div class="step-tabs">
+      <button class="step-tab active" onclick="switchStep(1)"><span class="step-num">1</span> Identity</button>
+      <button class="step-tab" onclick="switchStep(2)"><span class="step-num">2</span> Terrain & Shading</button>
+      <button class="step-tab" onclick="switchStep(3)"><span class="step-num">3</span> State Buffer</button>
+      <button class="step-tab" onclick="switchStep(4)"><span class="step-num">4</span> Character & Cloth</button>
+      <button class="step-tab" onclick="switchStep(5)"><span class="step-num">5</span> Centrepiece</button>
+      <button class="step-tab" onclick="switchStep(6)"><span class="step-num">6</span> Abilities</button>
+    </div>
+
+    <!-- FORM CONTAINER -->
+    <div class="form-container">
+
+      <!-- STEP 1: IDENTITY -->
+      <div class="form-step active" id="step-1">
+        <div class="section-header">
+          <h2>0. Identity & Prime Directive</h2>
+          <p>Define the high-level identity, core interaction, and engine target.</p>
+        </div>
+
+        <div class="pro-tip">
+          💡 <strong>Opinionated Rule:</strong> Visual quality is the product. No gameplay loops or HUDs allowed. The player tests the world for 90 seconds.
+        </div>
+
+        <div class="input-grid-2">
+          <div class="field-group">
+            <div class="field-label">
+              <label>Project Codename</label>
+              <span class="placeholder-tag">{{PROJECT_NAME}}</span>
+            </div>
+            <input type="text" id="PROJECT_NAME" value="SANDSTORM" oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <label>Primary Material Name</label>
+              <span class="placeholder-tag">{{PRIMARY_MATERIAL_NAME}}</span>
+            </div>
+            <input type="text" id="PRIMARY_MATERIAL_NAME" value="Sand" oninput="updatePreview()">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Primary Environment Description</label>
+            <span class="placeholder-tag">{{PRIMARY_ENVIRONMENT}}</span>
+          </div>
+          <input type="text" id="PRIMARY_ENVIRONMENT" value="a vast, windswept desert dune field" oninput="updatePreview()">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Core Interaction Pitch (1 Sentence)</label>
+            <span class="placeholder-tag">{{CORE_INTERACTION_SENTENCE}}</span>
+          </div>
+          <div class="field-help">Keep it to 1 sentence with 2-3 physical verbs (e.g., <code>trigger sandstorms, sandboard down a dune</code>).</div>
+          <input type="text" id="CORE_INTERACTION_SENTENCE" value="trigger sandstorms, carve sand-slides down dune faces, and fuse sand into fulgurite glass" oninput="updatePreview()">
+        </div>
+
+        <div class="input-grid-2">
+          <div class="field-group">
+            <div class="field-label">
+              <label>Engine & Renderer</label>
+              <span class="placeholder-tag">{{ENGINE}}</span>
+            </div>
+            <input type="text" id="ENGINE" value="Babylon.js latest stable, WebGPU only" oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <label>Shader Language</label>
+              <span class="placeholder-tag">{{SHADER_LANG}}</span>
+            </div>
+            <input type="text" id="SHADER_LANG" value="WGSL" oninput="updatePreview()">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: TERRAIN & SHADING -->
+      <div class="form-step" id="step-2">
+        <div class="section-header">
+          <h2>2.1 & 2.2 Terrain & Custom Shading</h2>
+          <p>Specify multi-scale noise frequencies, custom shading behaviours, and far-field treatment.</p>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Terrain Philosophy Sentence</label>
+            <span class="placeholder-tag">{{TERRAIN_PHILOSOPHY_SENTENCE}}</span>
+          </div>
+          <input type="text" id="TERRAIN_PHILOSOPHY_SENTENCE" value="A flat sand plane will read as a Unity default. The dunes need real mass and wind shear." oninput="updatePreview()">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Layered Terrain Noise Frequencies</label>
+            <span class="placeholder-tag">{{TERRAIN_NOISE_LAYERS}}</span>
+          </div>
+          <div class="field-help">Specify 3-4 physical scales: macro, medium, micro + prevailing wind shear.</div>
+          <textarea id="TERRAIN_NOISE_LAYERS" oninput="updatePreview()">sweeping barchan dune crescents at 50-100m scale, star-dune ridges at 10-20m, and wind ripples at 10-30cm. Do not use plain fBm. Encode a prevailing wind vector and let slip faces form naturally on the lee side.</textarea>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Material Shader Required Behaviours</label>
+            <span class="placeholder-tag">{{MATERIAL_BEHAVIOURS}}</span>
+          </div>
+          <div class="field-help">Specify 4-5 bold material features (normals, translucency, glinting, state channels).</div>
+          <textarea id="MATERIAL_BEHAVIOURS" rows="6" oninput="updatePreview()">1. Multi-Scale Normals — 3 tiling scales (broad dune curves, medium slope noise, micro sand ripples) triplanar blended on steep slip faces.
+2. Subsurface Translucency — Sand grains transmit warm backlight; lit dune crests glow amber with a wrapped-diffuse SSS model.
+3. Glinting Sparkle — Individual sand grains catch sunlight at grazing specular angles, stabilized under TAA using world-locked spatial hashing.
+4. Erosion & Moisture State — Read state channels to darken wet sand albedo near oases and flatten wind ripples on trodden paths.
+5. Micro-Occlusion — Self-shadowing in ripple troughs to enhance micro-contrast under low sun angles.</textarea>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Far-Field Horizon Treatment</label>
+            <span class="placeholder-tag">{{FAR_FIELD_TREATMENT}}</span>
+          </div>
+          <input type="text" id="FAR_FIELD_TREATMENT" value="heat-hazed plateaus and distant mesa silhouettes raymarched in the sky shader" oninput="updatePreview()">
+        </div>
+      </div>
+
+      <!-- STEP 3: STATE BUFFER -->
+      <div class="form-step" id="step-3">
+        <div class="section-header">
+          <h2>2.3 Terrain State Buffer (Deformation/Erosion)</h2>
+          <p>Configure the persistent GPU render target where footprints, surfing, and spells write marks.</p>
+        </div>
+
+        <div class="input-grid-2">
+          <div class="field-group">
+            <div class="field-label">
+              <label>System Name</label>
+              <span class="placeholder-tag">{{DEFORMATION_TYPE}}</span>
+            </div>
+            <input type="text" id="DEFORMATION_TYPE" value="Erosion" oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <label>Marks Plural Noun</label>
+              <span class="placeholder-tag">{{DEFORMATION_MARKS}}</span>
+            </div>
+            <input type="text" id="DEFORMATION_MARKS" value="tracks and slides" oninput="updatePreview()">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Packed Target Channels</label>
+            <span class="placeholder-tag">{{STATE_BUFFER_CHANNELS}}</span>
+          </div>
+          <textarea id="STATE_BUFFER_CHANNELS" rows="4" oninput="updatePreview()">- Channel R: Depression Depth (sand pushed down by feet, boards, and blast spells)
+- Channel G: Displaced Mass (sand pushed to edges forming raised ridges/berms)
+- Channel B: Moisture / Wetness (darkens sand albedo and tightens specular)
+- Channel A: Glass/Fulgurite State (fused crystalline glass created by lightning spells)</textarea>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Environment Recovery / Healing Mechanism</label>
+            <span class="placeholder-tag">{{RECOVERY_MECHANISM}}</span>
+          </div>
+          <input type="text" id="RECOVERY_MECHANISM" value="wind-driven infill from the prevailing direction using a GPU diffusion and decay pass" oninput="updatePreview()">
+        </div>
+      </div>
+
+      <!-- STEP 4: CHARACTER & CLOTH -->
+      <div class="form-step" id="step-4">
+        <div class="section-header">
+          <h2>2.6 Character, Cloth & Foot Planting</h2>
+          <p>Define the character silhouette, Verlet cloth physics, and architectural foot planting.</p>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Costume Type</label>
+            <span class="placeholder-tag">{{CHARACTER_COSTUME}}</span>
+          </div>
+          <input type="text" id="CHARACTER_COSTUME" value="desert nomad wraps" oninput="updatePreview()">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Outfit Description & Motion Elements</label>
+            <span class="placeholder-tag">{{CHARACTER_DESCRIPTION}}</span>
+          </div>
+          <textarea id="CHARACTER_DESCRIPTION" rows="3" oninput="updatePreview()">Create a desert nomad figure wearing layered, wind-blown fabric wraps, a long trailing headscarf (tagelmust), leather shoulder guards, and a sash. Translucent linen layers catch warm backlight.</textarea>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Foot Interaction on Step</label>
+            <span class="placeholder-tag">{{FOOT_INTERACTION}}</span>
+          </div>
+          <input type="text" id="FOOT_INTERACTION" value="sink into sand, leave crisp boot prints, and kick up puffs of dust" oninput="updatePreview()">
+        </div>
+      </div>
+
+      <!-- STEP 5: CENTREPIECE MECHANIC -->
+      <div class="form-step" id="step-5">
+        <div class="section-header">
+          <h2>2.9 Centrepiece Mechanic</h2>
+          <p>The primary movement mechanic (used more than everything else combined).</p>
+        </div>
+
+        <div class="input-grid-2">
+          <div class="field-group">
+            <div class="field-label">
+              <label>Mechanic Name</label>
+              <span class="placeholder-tag">{{CENTREPIECE_MECHANIC}}</span>
+            </div>
+            <input type="text" id="CENTREPIECE_MECHANIC" value="Sandboard-Slide" oninput="updatePreview()">
+          </div>
+          <div class="field-group">
+            <div class="field-label">
+              <label>Input Key</label>
+              <span class="placeholder-tag">{{CENTREPIECE_INPUT}}</span>
+            </div>
+            <input type="text" id="CENTREPIECE_INPUT" value="RMB" oninput="updatePreview()">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">
+            <label>Full Mechanic Description</label>
+            <span class="placeholder-tag">{{CENTREPIECE_DESCRIPTION}}</span>
+          </div>
+          <textarea id="CENTREPIECE_DESCRIPTION" rows="6" oninput="updatePreview()">Holding RMB summons a slab of compressed sand under the player's feet. The player accelerates downhill with visible body lean and a banked camera.
+
+The wake is the centrepiece: a curling, breaking wave of displaced sand trails behind toward the outside of turns, throwing a glowing dust plume that catches sunlight and casts a crisp shadow.
+
+Sandboard-slide carves a deep, persistent groove into the terrain state buffer with high side-ridges. A completed run remains visible across the dune field for over 60 seconds.
+
+Entering and exiting use eased camera FOV widening and screen-space wind streaks. There is no audio, so visual speed cues carry the momentum.</textarea>
+        </div>
+      </div>
+
+      <!-- STEP 6: ABILITIES -->
+      <div class="form-step" id="step-6">
+        <div class="section-header">
+          <h2>2.8 Abilities (Keys 1-5)</h2>
+          <p>Define 5 abilities that read & write the terrain state buffer using continuous flow.</p>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label"><label>Key 1 Ability</label><span class="placeholder-tag">{{ABILITY_1_NAME}}</span></div>
+          <input type="text" id="ABILITY_1_NAME" value="Sandblast — A crescent wave of pressurized sand rises ahead and travels forward, scouring a channel and throwing side-ridges." oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label"><label>Key 2 Ability</label><span class="placeholder-tag">{{ABILITY_2_NAME}}</span></div>
+          <input type="text" id="ABILITY_2_NAME" value="Quicksand — A held, continuous stream of fluid sand tracks the aim, creating a swirling sinkhole that draws surface sand inward." oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label"><label>Key 3 Ability</label><span class="placeholder-tag">{{ABILITY_3_NAME}}</span></div>
+          <input type="text" id="ABILITY_3_NAME" value="Dust Pillar — A targeted thermal eruption sends a column of golden dust into the sky, blowing a deep crater that rains glittering fallout." oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label"><label>Key 4 Ability</label><span class="placeholder-tag">{{ABILITY_4_NAME}}</span></div>
+          <input type="text" id="ABILITY_4_NAME" value="Fulgurite — Lightning strikes the ground, rapidly fusing sand into glowing, refractive fulgurite glass structures with internal light scatter." oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <div class="field-label"><label>Key 5 Ability</label><span class="placeholder-tag">{{ABILITY_5_NAME}}</span></div>
+          <input type="text" id="ABILITY_5_NAME" value="Sandstorm Vortex — A swirling column of airborne dust forms around the player, visibly stripping surface sand down to bedrock." oninput="updatePreview()">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER BAR -->
+    <div class="verifier-bar">
+      <div class="verifier-info">
+        Automated test runner included: <strong>verify_demo.mjs</strong> (Build + WebGPU + 90 FPS check)
+      </div>
+      <button class="btn btn-primary" onclick="copyPrompt()">📋 Copy Prompt to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: PREVIEW PANE -->
+  <div class="preview-pane">
+    <div class="preview-header">
+      <div class="preview-title">
+        <span>📄 Live Generated Prompt Brief</span>
+        <span class="badge" id="status-badge">100% Ready</span>
+      </div>
+      <div class="action-btns">
+        <button class="btn btn-secondary" onclick="copyPrompt()">📋 Copy</button>
+        <button class="btn btn-primary" onclick="downloadPrompt()">💾 Download Brief.md</button>
+      </div>
+    </div>
+    <div class="preview-body">
+      <pre class="markdown-preview" id="markdown-output">Generating prompt...</pre>
+    </div>
+  </div>
+
+  <script>
+    // PRESETS DATA
+    const PRESETS = {
+      desert: {
+        PROJECT_NAME: "SANDSTORM",
+        PRIMARY_ENVIRONMENT: "a vast, windswept desert dune field",
+        CORE_INTERACTION_SENTENCE: "trigger sandstorms, carve sand-slides down dune faces, and fuse sand into fulgurite glass",
+        ENGINE: "Babylon.js latest stable, WebGPU only",
+        SHADER_LANG: "WGSL",
+        PRIMARY_MATERIAL_NAME: "Sand",
+        TERRAIN_PHILOSOPHY_SENTENCE: "A flat sand plane will read as a Unity default. The dunes need real mass and wind shear.",
+        TERRAIN_NOISE_LAYERS: "sweeping barchan dune crescents at 50-100m scale, star-dune ridges at 10-20m, and wind ripples at 10-30cm. Do not use plain fBm. Encode a prevailing wind vector and let slip faces form naturally on the lee side.",
+        MATERIAL_BEHAVIOURS: `1. Multi-Scale Normals — 3 tiling scales (broad dune curves, medium slope noise, micro sand ripples) triplanar blended on steep slip faces.
+2. Subsurface Translucency — Sand grains transmit warm backlight; lit dune crests glow amber with a wrapped-diffuse SSS model.
+3. Glinting Sparkle — Individual sand grains catch sunlight at grazing specular angles, stabilized under TAA using world-locked spatial hashing.
+4. Erosion & Moisture State — Read state channels to darken wet sand albedo near oases and flatten wind ripples on trodden paths.
+5. Micro-Occlusion — Self-shadowing in ripple troughs to enhance micro-contrast under low sun angles.`,
+        FAR_FIELD_TREATMENT: "heat-hazed plateaus and distant mesa silhouettes raymarched in the sky shader",
+        DEFORMATION_TYPE: "Erosion",
+        DEFORMATION_MARKS: "tracks and slides",
+        STATE_BUFFER_CHANNELS: `- Channel R: Depression Depth (sand pushed down by feet, boards, and blast spells)
+- Channel G: Displaced Mass (sand pushed to edges forming raised ridges/berms)
+- Channel B: Moisture / Wetness (darkens sand albedo and tightens specular)
+- Channel A: Glass/Fulgurite State (fused crystalline glass created by lightning spells)`,
+        RECOVERY_MECHANISM: "wind-driven infill from the prevailing direction using a GPU diffusion and decay pass",
+        CHARACTER_COSTUME: "desert nomad wraps",
+        CHARACTER_DESCRIPTION: "Create a desert nomad figure wearing layered, wind-blown fabric wraps, a long trailing headscarf (tagelmust), leather shoulder guards, and a sash. Translucent linen layers catch warm backlight.",
+        FOOT_INTERACTION: "sink into sand, leave crisp boot prints, and kick up puffs of dust",
+        CENTREPIECE_MECHANIC: "Sandboard-Slide",
+        CENTREPIECE_INPUT: "RMB",
+        CENTREPIECE_DESCRIPTION: `Holding RMB summons a slab of compressed sand under the player's feet. The player accelerates downhill with visible body lean and a banked camera.
+
+The wake is the centrepiece: a curling, breaking wave of displaced sand trails behind toward the outside of turns, throwing a glowing dust plume that catches sunlight and casts a crisp shadow.
+
+Sandboard-slide carves a deep, persistent groove into the terrain state buffer with high side-ridges. A completed run remains visible across the dune field for over 60 seconds.
+
+Entering and exiting use eased camera FOV widening and screen-space wind streaks. There is no audio, so visual speed cues carry the momentum.`,
+        ABILITY_1_NAME: "Sandblast — A crescent wave of pressurized sand rises ahead and travels forward, scouring a channel and throwing side-ridges.",
+        ABILITY_2_NAME: "Quicksand — A held, continuous stream of fluid sand tracks the aim, creating a swirling sinkhole that draws surface sand inward.",
+        ABILITY_3_NAME: "Dust Pillar — A targeted thermal eruption sends a column of golden dust into the sky, blowing a deep crater that rains glittering fallout.",
+        ABILITY_4_NAME: "Fulgurite — Lightning strikes the ground, rapidly fusing sand into glowing, refractive fulgurite glass structures with internal light scatter.",
+        ABILITY_5_NAME: "Sandstorm Vortex — A swirling column of airborne dust forms around the player, visibly stripping surface sand down to bedrock."
+      },
+      volcanic: {
+        PROJECT_NAME: "MAGMAFLOW",
+        PRIMARY_ENVIRONMENT: "an active volcanic flow field with rivers of glowing magma",
+        CORE_INTERACTION_SENTENCE: "shatter obsidian crusts, carve lava channels, and skate across molten magma",
+        ENGINE: "Babylon.js latest stable, WebGPU only",
+        SHADER_LANG: "WGSL",
+        PRIMARY_MATERIAL_NAME: "Magma",
+        TERRAIN_PHILOSOPHY_SENTENCE: "Still lava is lava-coloured water. The flow needs viscosity, crusting, and memory.",
+        TERRAIN_NOISE_LAYERS: "cooled basalt ridges at 40-80m scale, ropy pahoehoe channels at 5-15m, and micro-crust fracture lines at 20-50cm. Flow velocity shears the crust.",
+        MATERIAL_BEHAVIOURS: `1. Voronoi Emissive Cracking — Dark obsidian crust fractured by bright yellow-white emissive magma cracks.
+2. Temperature Color Gradient — Hot magma (1300°C yellow-white) cools to orange (900°C), dark red (600°C), and black crust.
+3. Pahoehoe Flow Normals — Directional flow-aligned ropy normal maps that distort with surface velocity.
+4. Crust Thickness State — State buffer tracks cooling age; player weight cracks thin crust to expose molten core.
+5. Heat Haze Distortion — Screen-space heat refraction increasing over hot thermal zones.`,
+        FAR_FIELD_TREATMENT: "distant erupting volcanic caldera with ash plumes and glowing horizons raymarched in sky shader",
+        DEFORMATION_TYPE: "Flow Crust",
+        DEFORMATION_MARKS: "fissures and channels",
+        STATE_BUFFER_CHANNELS: `- Channel R: Crust Fracture (crust cracked by feet or skates, exposing emission)
+- Channel G: Channel Depth (magma channels carved into basalt)
+- Channel B: Temperature (heat state driving emissive intensity)
+- Channel A: Obsidian Cooling (flash-cooled glass paths)`,
+        RECOVERY_MECHANISM: "reheat from below and crust re-formation via a GPU thermal diffusion pass",
+        CHARACTER_COSTUME: "obsidian exo-suit",
+        CHARACTER_DESCRIPTION: "Create a heat-resistant suit featuring segmented dark obsidian plates over a glowing orange thermal under-layer. Flexible joints emit heat shimmer.",
+        FOOT_INTERACTION: "crack the cooling crust with bright glowing footprints and ember sparks",
+        CENTREPIECE_MECHANIC: "Lava-Skate",
+        CENTREPIECE_INPUT: "RMB",
+        CENTREPIECE_DESCRIPTION: `Holding RMB flash-cools a sleek path of mirror-black obsidian under the player's boots. The player glides across molten lava at speed.
+
+The wake is the centrepiece: a trail of glowing embers and liquid magma spray thrown outward during carving turns, casting orange light onto surrounding basalt.
+
+Lava-skate carves a persistent cooled obsidian path that gradually reheats and melts back into liquid magma over 60 seconds.`,
+        ABILITY_1_NAME: "Magma Surge — A wave of molten lava erupts forward, melting terrain crust and carving a glowing channel.",
+        ABILITY_2_NAME: "Flame Jet — A held stream of pressurized plasma scores deep thermal grooves into the ground.",
+        ABILITY_3_NAME: "Caldera Blast — A targeted explosive eruption blows a fiery crater with liquid magma fallout.",
+        ABILITY_4_NAME: "Obsidian Pillar — Liquid magma flash-freezes into tall, refractive black obsidian crystals.",
+        ABILITY_5_NAME: "Ember Vortex — Swirling superheated ash lifts surface crust into a spinning tornado of fire."
+      },
+      snow: {
+        PROJECT_NAME: "SNOWFLOW",
+        PRIMARY_ENVIRONMENT: "a snow-covered alpine field",
+        CORE_INTERACTION_SENTENCE: "cast spells, surf across dunes, and carve persistent trails in deep powder",
+        ENGINE: "Babylon.js latest stable, WebGPU only",
+        SHADER_LANG: "WGSL",
+        PRIMARY_MATERIAL_NAME: "Snow",
+        TERRAIN_PHILOSOPHY_SENTENCE: "A flat plane will kill this demo. The snow field needs real form.",
+        TERRAIN_NOISE_LAYERS: "broad dune forms at 30-80m, medium drifts at 3-10m, and sastrugi wind ridges at 20-50cm stretched along prevailing wind.",
+        MATERIAL_BEHAVIOURS: `1. Multi-Scale Normals — 3 tiling scales (dunes, drifts, sastrugi) with triplanar blending on steep faces.
+2. Subsurface Scattering — Wrapped diffuse + backscattering giving a deep blue-white translucency glow.
+3. Specular Glinting — High-frequency micro-sparkle visible at grazing angles, stabilized under TAA.
+4. State Reading — Reads compression (darker/rougher), wetness, and ice channels from state target.
+5. Micro-Occlusion — Micro-shadowing along trail edges and sastrugi troughs.`,
+        FAR_FIELD_TREATMENT: "distant mountain peaks and heavy aerial perspective raymarched in the sky shader",
+        DEFORMATION_TYPE: "Deformation",
+        DEFORMATION_MARKS: "trails and footprints",
+        STATE_BUFFER_CHANNELS: `- Channel R: Depression Depth (snow pushed down by steps and surf)
+- Channel G: Displaced Mass (snow pushed outward forming berms)
+- Channel B: Compression & Wetness (darkens albedo, tightens specular)
+- Channel A: Refrozen Ice State (glossy clear ice created by freeze spells)`,
+        RECOVERY_MECHANISM: "slow refill through a gentle diffusion and decay pass",
+        CHARACTER_COSTUME: "hooded robe",
+        CHARACTER_DESCRIPTION: "Create a hooded, layered robe with a deep cowl, long sleeves, over-mantle, and trailing hem, trimmed with 30 shells of procedural fur.",
+        FOOT_INTERACTION: "displace snow and kick up powder spray",
+        CENTREPIECE_MECHANIC: "Snow-Surf",
+        CENTREPIECE_INPUT: "RMB",
+        CENTREPIECE_DESCRIPTION: `Holding RMB raises a crest of compressed snow under the player's feet as they accelerate. Mouse steers carving turns with body lean.
+
+The wake is the centrepiece: a curling, breaking wave of displaced snow trailing behind, throwing a spray plume that catches sunlight and casts shadows.
+
+Snow-surf carves a deep, persistent groove into the terrain buffer with high berms visible across the field for 60 seconds.`,
+        ABILITY_1_NAME: "Sweep — A crescent wave of slush and water rises and travels outward, ploughing a channel with berms.",
+        ABILITY_2_NAME: "Ribbon — A held continuous stream of water tracks camera aim, scoring thin lines in the snow.",
+        ABILITY_3_NAME: "Bloom — A targeted eruption sends powder upward, blowing a crater with a raised rim and glittering fallout.",
+        ABILITY_4_NAME: "Crystallise — Water rapidly freezes into refractive ice crystals with internal light transport.",
+        ABILITY_5_NAME: "Vortex — Swirling airborne snow strips surface powder down in a ring, holding snow aloft before settling."
+      }
+    };
+
+    function loadPreset(key) {
+      const preset = PRESETS[key] || PRESETS.desert;
+      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+
+      Object.keys(preset).forEach(fieldId => {
+        const el = document.getElementById(fieldId);
+        if (el) el.value = preset[fieldId];
+      });
+
+      updatePreview();
+    }
+
+    function switchStep(num) {
+      document.querySelectorAll('.step-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+
+      document.querySelectorAll('.step-tab')[num - 1].classList.add('active');
+      document.getElementById(`step-${num}`).classList.add('active');
+    }
+
+    function setMode(mode) {
+      document.getElementById('btn-noob').classList.toggle('active', mode === 'noob');
+      document.getElementById('btn-savvy').classList.toggle('active', mode === 'savvy');
+    }
+
+    function getVal(id, fallback = '') {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : fallback;
+    }
+
+    function generateMarkdown() {
+      const proj = getVal('PROJECT_NAME', 'SANDSTORM');
+      const mat = getVal('PRIMARY_MATERIAL_NAME', 'Sand');
+      const env = getVal('PRIMARY_ENVIRONMENT', 'a desert dune field');
+      const pitch = getVal('CORE_INTERACTION_SENTENCE', 'trigger sandstorms, carve sand-slides');
+      const engine = getVal('ENGINE', 'Babylon.js latest stable, WebGPU only');
+      const lang = getVal('SHADER_LANG', 'WGSL');
+      const phil = getVal('TERRAIN_PHILOSOPHY_SENTENCE');
+      const noise = getVal('TERRAIN_NOISE_LAYERS');
+      const matBehav = getVal('MATERIAL_BEHAVIOURS');
+      const farField = getVal('FAR_FIELD_TREATMENT');
+      const defType = getVal('DEFORMATION_TYPE', 'Erosion');
+      const defMarks = getVal('DEFORMATION_MARKS', 'tracks');
+      const channels = getVal('STATE_BUFFER_CHANNELS');
+      const recovery = getVal('RECOVERY_MECHANISM');
+      const costume = getVal('CHARACTER_COSTUME', 'robes');
+      const charDesc = getVal('CHARACTER_DESCRIPTION');
+      const footInt = getVal('FOOT_INTERACTION');
+      const centreName = getVal('CENTREPIECE_MECHANIC', 'Sandboard-Slide');
+      const centreInput = getVal('CENTREPIECE_INPUT', 'RMB');
+      const centreDesc = getVal('CENTREPIECE_DESCRIPTION');
+      const a1 = getVal('ABILITY_1_NAME');
+      const a2 = getVal('ABILITY_2_NAME');
+      const a3 = getVal('ABILITY_3_NAME');
+      const a4 = getVal('ABILITY_4_NAME');
+      const a5 = getVal('ABILITY_5_NAME');
+
+      return `# ${proj} — Tech Demo · Implementation Brief
+
+You are the sole engineer and technical artist on a real-time graphics tech demo. Build it end to end. This document is the spec, the art direction, and the acceptance criteria.
+
+## 0. Prime Directive
+
+Visual quality is the product. There is no gameplay loop, no progression, no UI to design around. A player will load this, walk around ${env} for ninety seconds, ${pitch}, and either think "this is AAA" or close the tab. Everything below serves that single judgment.
+
+Two rules that override everything else in this document:
+
+If a requirement in this brief conflicts with making the demo more beautiful, break the requirement. Note the deviation in DECISIONS.md with a one-line rationale. You have full authority to change scope, swap techniques, or drop a feature that isn't paying for its pixels.
+
+Anything that reads as low-poly, flat-shaded, untextured, placeholder, or "indie prototype" is a defect, not a stepping stone. If you can't make a thing look finished, cut it from the frame rather than ship it looking rough.
+
+Do not stop at "it works." Stop when every captured frame looks polished, cohesive, and production-ready.
+
+---
+
+## 1. Stack and Hard Constraints
+
+| Concern        | Spec |
+|----------------|------|
+| Language        | Modern JavaScript (ES2023 modules). JSDoc types encouraged, no TypeScript build step required. |
+| Engine          | ${engine} |
+| Shader Language | ${lang} |
+| Bundler         | Vite |
+| Target          | Chrome stable on Windows 11, RTX 4070 / 5070 Ti, 2560x1440 |
+| Frame target    | 90 FPS sustained. 60 FPS floor. |
+| Frame time      | No frame exceeding median + 4 ms after loading screen dismisses. |
+
+No fallbacks. No WebGL path, no mobile path, no feature detection branches. If \`navigator.gpu\` is absent, show a single line of text and stop. Do not spend a minute on compatibility.
+
+**Assets.** Generate everything procedurally where possible. Zero binary runtime CDN texture/mesh dependencies.
+
+---
+
+## 2. Systems
+
+### 2.1 Terrain
+
+${phil}
+
+Build a geometry clipmap or nested-ring LOD centred on the player, so triangle density is high near the camera and falls off with distance. Aim for roughly sub-10 cm vertex spacing in the inner ring at default zoom.
+
+Height comes from layered procedural noise composited on the GPU: ${noise}
+
+The far field needs ${farField}. The proven approach is a raymarched heightfield in the sky shader — with analytic normals, ridge-on-ridge occlusion, a sun-direction march for cast shadows, and the same material logic and atmosphere as the near field — so near and far terrain meet at one consistent colour.
+
+### 2.2 ${mat} Shading
+
+This shader is the most important code in the project. Budget accordingly.
+
+Build a custom material using ShaderMaterial. Use ${lang} through raw shader code, not a stock PBR material with a naive albedo.
+
+**Required behaviours:**
+
+${matBehav}
+
+Build the material's core lighting response as a shared shader include (\`lib/${mat.toLowerCase()}Lighting.wgsl\`) that every surface in the scene imports — terrain, character, wake, particles, abilities. One function, used everywhere.
+
+### 2.3 Terrain State and ${defType}
+
+This is the core interactive system. Everything writes here; the ${mat} shader reads it.
+
+Maintain a player-following render target covering roughly 60–100 m, with resolution high enough for approximately 2 cm texels in the ${defType} area. A 4096 sq R16F target scrolled toroidally as the player moves is required. Snap movement to texel boundaries to avoid swimming.
+
+**Suggested channels, packed across target:**
+
+${channels}
+
+**Rules:**
+
+${defType} is persistent and additive, accumulated by writing brush splats into the target each frame. Never rebuild it from a list of past events.
+
+Apply ${recovery} over time, so ${defMarks} soften and melt back. Tune it so a mark remains clearly visible after 60 seconds.
+
+Terrain vertex displacement samples state channels. Recompute normals from the same data so lighting and shadowing respond correctly. A mark that does not self-shadow is a failure.
+
+Player feet, the ${centreName} wake, and every ability write into this buffer.
+
+### 2.4 Atmosphere and Lighting
+
+Use cascaded shadow maps (CSM) with PCSS-style soft filtering. If terrain geometry exists only in vertex shader (procedural clipmap), implement shadow cascades yourself, registering each caster's actual vertex program. Texel-snap cascade projections in world space.
+
+Add fog and aerial perspective with height falloff.
+
+Abilities emit light. Budget 4-6 dynamic lights maximum, with tight radii.
+
+### 2.5 Post-Processing
+
+Suggested chain: TAA → SSAO → SSR → DoF → Bloom → ACES Tonemapping → Grain → Sharpening.
+
+Build a shared depth prepass carrying linear view depth and material mask to feed all post-processing passes.
+
+### 2.6 Character and ${costume}
+
+${charDesc}
+
+Add Verlet cloth simulation to character panels. Decouple simulation resolution from visual tessellation using Catmull-Rom interpolation in the vertex shader.
+
+Pack all per-frame character data into a single small texture (rows 0-3 bone matrices, rows 4+ cloth nodes). One upload per frame, zero allocation.
+
+Feet must plant rather than slide. Achieve this architecturally: a foot's world position is written once on touchdown and held absolutely fixed while IK reaches for it. Feet ${footInt} on each step.
+
+### 2.7 Camera and Controls
+
+Third-person, action-MMO framing over shoulder. WASD movement relative to camera. Mouse orbits, scroll wheel zooms. Spring-arm camera with velocity lag and FOV widening under speed.
+
+### 2.8 Abilities: Keys 1-5
+
+All five abilities share one bending grammar: continuous, momentum-carrying, unbroken flow.
+
+- **1:** ${a1}
+- **2:** ${a2}
+- **3:** ${a3}
+- **4:** ${a4}
+- **5:** ${a5}
+
+All abilities moving a coherent body of material must share a single mesh and single draw call using a Strand Manager (inactive strands zeroed). Sample sky LUT along refracted ray for screen-space refraction.
+
+### 2.9 ${centreName}: Hold ${centreInput}
+
+This will be used more than everything else combined. It receives the most polish.
+
+${centreDesc}
+
+Build wake as a static lattice mesh driven by a 96×3 data texture spine. Constant GPU upload regardless of wake length. No audio — visual speed cues carry all momentum.
+
+---
+
+## 3. Performance & Warm-up
+
+- Zero allocations in render loop (\`new\` prohibited in per-frame code).
+- Pre-allocated typed arrays, scratch vectors, object pooling for transient effects.
+- Force-compile every material, particle system, post-process, and compute pipeline behind loading screen. Gate on \`material.isReady()\`.
+- Track VRAM budget and 1% low frame time graph in settings overlay.
+
+---
+
+## 4. Visual Acceptance Criteria
+
+- Distant terrain shows clear aerial perspective.
+- Detail legible at 3 distinct scales simultaneously.
+- State marks displace mass, form raised edges, self-shadow, and soften over time.
+- Abilities leave persistent state marks.
+- Sustains 90 FPS with 1% lows above 60 FPS. Zero hitching on first cast.`;
+    }
+
+    function updatePreview() {
+      const md = generateMarkdown();
+      document.getElementById('markdown-output').textContent = md;
+    }
+
+    function copyPrompt() {
+      const md = generateMarkdown();
+      navigator.clipboard.writeText(md).then(() => {
+        alert('✅ Filled prompt copied to clipboard! Ready to paste to AI agent.');
+      });
+    }
+
+    function downloadPrompt() {
+      const md = generateMarkdown();
+      const proj = getVal('PROJECT_NAME', 'TECHDEMO');
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${proj}_TECHDEMO_PROMPT.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Init
+    updatePreview();
+  </script>
+</body>
+</html>
