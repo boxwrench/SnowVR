@@ -1,0 +1,176 @@
+:root {
+  --bg-primary: #0a0f1d;
+  --panel-bg: rgba(13, 22, 38, 0.75);
+  --panel-border: rgba(116, 215, 238, 0.25);
+  --accent-cyan: #74d7ee;
+  --accent-gold: #ffbd59;
+  --text-main: #e2f1f8;
+  --text-dim: #8faec4;
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-main);
+}
+
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* Glassmorphic Panel Overlays */
+.overlay-panel {
+  position: absolute;
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  color: var(--text-main);
+  z-index: 10;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.header-overlay {
+  top: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.enter-vr-btn {
+  margin-top: 10px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid rgba(116, 215, 238, 0.4);
+  color: #fff;
+  font-family: var(--font-main);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.enter-vr-btn:hover {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: 0 0 16px rgba(116, 215, 238, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Spell Selector Bar */
+.spell-bar-overlay {
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spell-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.spell-btn.active {
+  background: rgba(116, 215, 238, 0.2);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(116, 215, 238, 0.3);
+  color: #fff;
+}
+
+.spell-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.spell-key {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-cyan);
+}
+
+/* Dev / Shader Tweaker Panel */
+.dev-panel-overlay {
+  top: 20px;
+  right: 20px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dev-panel-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.control-slider {
+  width: 100%;
+  accent-color: var(--accent-cyan);
+}

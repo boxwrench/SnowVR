@@ -1,0 +1,32 @@
+{
+  "name": "snow-vr",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.0.0",
+    "@react-three/fiber": "^9.0.0",
+    "@react-three/postprocessing": "^2.16.8",
+    "@react-three/xr": "^6.6.30",
+    "postprocessing": "^6.36.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "0.165.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "0.165.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "gh-pages": "^6.3.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5"
+  }
+}

@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Production build
+dist/
+
+# Local env files
+.env
+.env.local
+*.log
+
+# Editor / OS files
+.DS_Store
+.vscode/
+.idea/
