@@ -57,6 +57,12 @@ Verify these interactions with both controllers awake:
 - A or B advances to the next spell.
 - The right-controller reticle follows uneven terrain when aimed downward and
   falls back to a stable forward ground target when the controller is level.
+- Hydro Stream produces a wide channel with tall sidewalls that the board can
+  carve up and descend from; Thermal Melt produces a hole the board must climb
+  out of.
+- Glacier Trail paints ice that automatically accelerates the board toward
+  34 m/s while ridden.
+- Vortex Mountain raises the board and changes its slope as it is crossed.
 - Casting produces throttled right-controller haptics.
 - Disconnecting or ending the XR session clears casting state.
 

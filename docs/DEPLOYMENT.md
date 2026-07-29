@@ -42,3 +42,19 @@ npm run deploy
 1. Open Meta Quest Browser inside your Meta Quest 3 headset.
 2. Navigate to your GitHub Pages URL: `https://<YOUR_GITHUB_USERNAME>.github.io/SnowVR/`
 3. Click **🥽 Enter VR** to launch the full 6DOF immersive snow playground!
+
+## Publishing a release
+
+Release commits are validated, pushed to `main`, and tagged with the package
+version:
+
+```bash
+npm run validate
+git tag -a v0.1.0 -m "SnowVR v0.1.0"
+git push origin main
+git push origin v0.1.0
+```
+
+The `main` push deploys GitHub Pages through the workflow above. The matching
+GitHub release uses the corresponding section of [`CHANGELOG.md`](../CHANGELOG.md)
+as its release notes.

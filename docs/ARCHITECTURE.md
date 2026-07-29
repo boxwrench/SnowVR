@@ -16,6 +16,9 @@ flowchart TD
   CPU --> Aim[Terrain-aware controller aim]
   Aim --> Reticle[Reticle and particle grounding]
   Brush --> Deform[1024 x 1024 RGBA16F deformation ping-pong]
+  Brush --> Collision[257 x 257 CPU rideable deformation mirror]
+  Collision --> Rider
+  Collision --> Aim
   Deform --> GPU
   Telemetry --> Audio[Wind and carving audio]
   Telemetry --> HUD[Desktop and XR status panels]
@@ -36,12 +39,14 @@ flowchart TD
 - The GPU samples that array through a nearest-filtered float `DataTexture`. CPU grounding uses the same data and the exact two-triangle split used by Three.js `PlaneGeometry`, including the inverted world-Z/texture-V mapping.
 - `SnowDeformationBuffer.ts` maintains two 1024 x 1024 `RGBA16F` render targets. Channels store depression, berm/spire height, ice, and wetness.
 - Offscreen deformation and GPGPU passes run through `withPreservedRenderTarget`. The helper temporarily disables Three.js WebXR camera substitution so those passes retain their orthographic simulation camera, then restores both the headset render target and the previous XR state.
+- `RideableDeformationField.ts` mirrors spell brush stamps into a 257 x 257 CPU field. It avoids synchronous GPU readback while providing bilinear depression, mound, ice, and wetness samples for gameplay.
 - Spell and carving stamps are normalized to a 72 Hz reference rate. Slump, wind refill, and drying use elapsed time.
-- Dynamic deformation is currently visual-only. Rider physics, reticles, and particle emission are grounded to the shared base heightfield, not the deformation buffer.
+- Spell deformation is rideable: the rider, reticle, and spell emitters sample the base heightfield plus the CPU deformation mirror. Surface normals project gravity down mounds and trenches, Hydro Stream builds wet halfpipe walls, ice trails accelerate toward a 34 m/s cap, and wet slush increases drag.
+- Board carving remains visual-only so the rider does not sink continuously into the track being created directly beneath it.
 
 ## Effects, audio, and UI
 
-- Spell VFX use a 64 x 64 GPGPU state texture: 4,096 particles with idle suspension. Spawn probability is converted from the 72 Hz reference probability to the current frame interval.
+- Spell VFX use a 64 x 64 GPGPU state texture: 4,096 particles with idle suspension. Spawn probability is converted from the 72 Hz reference probability to the current frame interval, and per-spell intensity reduces density, size, and opacity where particles would obscure the authored surface.
 - Falling snow uses 1,200 CPU-updated points. Slalom poles are instanced.
 - Audio consumes sampled rider speed and carving intensity rather than UI input state.
 - The always-available XR status panel shows the active spell, rider speed, and CAST/READY state near the rider.
@@ -54,6 +59,7 @@ flowchart TD
 | Terrain mesh | 256 x 256 segments (257 x 257 vertices) |
 | Base heightfield | 257 x 257 R32F-equivalent data texture |
 | Deformation state | 1024 x 1024 RGBA16F, ping-pong |
+| Rideable deformation mirror | 257 x 257, four CPU float channels |
 | Spell particles | 4,096 |
 | Falling snow points | 1,200 |
 | Quest target | 72 Hz, foveation 0.5 |

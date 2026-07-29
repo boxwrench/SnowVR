@@ -32,7 +32,7 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 | **W / S / ↑ / ↓** | Accelerate / Reverse |
 | **A / D / ← / →** | Steer left / right (banks into turns) |
 | **Spacebar** | Speed Boost (16 → 28 m/s) |
-| **Keys 1–5** | Select active spell |
+| **Keys 1–4** | Select active spell |
 | **Left Click / Shift / E** | Fire active spell stream |
 | **Right Click + Drag** | Orbit camera |
 
@@ -42,11 +42,10 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 
 | Key | Spell | Effect |
 |-----|-------|--------|
-| 1 | **Snow Carver** | Precision narrow wake with twin side-berms |
-| 2 | **Hydro Stream** | High-pressure water jet that cuts fluid trenches and saturates wet slush |
-| 3 | **Frost Spire** | Freezes crystalline ice columns rising out of the snow |
-| 4 | **Thermal Melt** | Melts deep smooth trenches into reflective wet slush pools |
-| 5 | **Vortex Mountain** | Pulls snow inward to build snow dune mounds |
+| 1 | **Hydro Stream** | Cuts a wide halfpipe with tall rideable walls and speed-sapping wet slush |
+| 2 | **Glacier Trail** | Paints a wide, clear ice route that accelerates the board up to 34 m/s |
+| 3 | **Thermal Melt** | Melts deep smooth holes into reflective wet slush pools |
+| 4 | **Vortex Mountain** | Pulls snow inward to build rideable snow mountains |
 
 ---
 
@@ -55,10 +54,10 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 - **WebXR & Quest 3 Native FFR:** Uses Meta Quest Browser's native Fixed Foveated Rendering (`gl.xr.setFoveation(0.5)`) to optimize stereo GPU rendering headroom.
 - **Toroidal Snow Deformation FBO:** 1024² ping-pong `RGBA16F` half-float render targets tracking 4 surface channels:
   - **R (Depression):** Trench depth & impact craters
-  - **G (Displaced Mass):** Raised side-berms, Frost Spires, and Vortex Mountains
+  - **G (Displaced Mass):** Raised side-berms and Vortex Mountains
   - **B (Ice):** Hard ice compression
   - **A (Wetness):** Slush saturation with wind drying & slump relaxation
-- **Grounded Physics & Shared Elevation Math:** Shared CPU/GPU elevation module (`src/snow/terrainMath.ts`) grounds rider position, reticle Y, and particle emitters on the displaced terrain surface.
+- **Rideable Dynamic Terrain:** A compact CPU collision mirror follows spell-authored GPU deformation. Trenches and holes lower the rider, mountains raise and tilt the board, terrain slopes apply gravity, ice accelerates, and wet slush adds drag.
 - **3rd-Person VR Chase Rig:** Trailing horizon-stable camera tracking (`<XROrigin>`) following rider position and heading smoothly while preserving free 360° VR head-look.
 - **Adaptive GPGPU Particles:** GPU-driven ping-pong particle system (`GPGPUParticleSystem.ts`) budgeted to 4,096 active particles with automatic idle pause during normal riding.
 - **Zero-Asset Web Audio:** Procedural Web Audio synthesis (`SnowAudioController.tsx`) generating wind hiss and board scrape audio based on velocity.

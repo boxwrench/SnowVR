@@ -13,7 +13,10 @@ worldZ = (0.5 - v) * 120
 
 Texture V therefore runs opposite world Z. The terrain vertex shader samples texel centers with nearest filtering so every mesh vertex receives exactly the corresponding heightfield value. CPU grounding interpolates the same grid using the same triangle diagonal as Three.js `PlaneGeometry`.
 
-Dynamic deformation is intentionally not included in CPU collision or grounding yet.
+Spell-authored deformation is mirrored by `RideableDeformationField.ts` for
+rider collision, aiming, and particle grounding. The board's ordinary carving
+stamp remains visual-only to prevent the rider from sinking into its own
+newly-created track.
 
 ## Deformation simulation
 
@@ -38,8 +41,17 @@ The brush uses the same UV-to-world mapping as the heightfield. Stamp accumulati
 The rendered displacement is:
 
 ```text
-deformHeight = (-depression * 1.2 + berm * 1.8) * displacementScale
+bermScale = 1.8 + wetness * 1.4
+deformHeight = (-depression * 1.2 + berm * bermScale) * displacementScale
 ```
+
+The CPU rideable field uses the same brush accumulation and displacement
+weights at terrain-grid resolution. Its decay is an inexpensive approximation
+of the GPU diffusion and wind refill, avoiding a render-target readback stall
+in the XR frame loop.
+
+The wetness-dependent berm scale gives Hydro Stream taller sidewalls while
+leaving dry Vortex Mountain displacement unchanged.
 
 ## Displaced normals
 

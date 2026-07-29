@@ -247,6 +247,7 @@ const particleRenderVertex = `
 uniform sampler2D uStateMap;
 uniform sampler2D uStateMap2;
 uniform float uTexSize;
+uniform float uVfxIntensity;
 
 varying float vLife;
 varying float vMaxLife;
@@ -273,12 +274,14 @@ void main() {
   // Size attenuation + life-based fade
   float lifeFrac = clamp(vLife / max(vMaxLife, 0.01), 0.0, 1.0);
   gl_PointSize = (3.0 + lifeFrac * 5.0) * (300.0 / -mvPos.z);
+  gl_PointSize *= mix(0.7, 1.0, clamp(uVfxIntensity, 0.0, 1.0));
   gl_PointSize = clamp(gl_PointSize, 1.0, 32.0);
 }
 `
 
 const particleRenderFragment = `
 uniform vec3 uColor;
+uniform float uVfxIntensity;
 varying float vLife;
 varying float vMaxLife;
 varying float vHeight;
@@ -296,7 +299,7 @@ void main() {
   vec3 col = uColor * (0.6 + lifeFrac * 0.6);
   col += vec3(0.2, 0.15, 0.05) * max(0.0, vHeight * 0.15);
 
-  gl_FragColor = vec4(col, alpha * 0.85);
+  gl_FragColor = vec4(col, alpha * 0.64 * clamp(uVfxIntensity, 0.0, 1.0));
 }
 `
 
@@ -381,6 +384,7 @@ export class GPGPUParticleSystem {
         uStateMap2: { value: null },
         uTexSize: { value: texSize },
         uColor: { value: new THREE.Color('#74d7ee') },
+        uVfxIntensity: { value: 1.0 },
       },
       transparent: true,
       depthWrite: false,
@@ -398,7 +402,8 @@ export class GPGPUParticleSystem {
     emitterPosRadius: THREE.Vector4,
     emitRate: number,
     spellType: number,
-    color: THREE.Color
+    color: THREE.Color,
+    vfxIntensity: number,
   ) {
     const readState1 = this.isA ? this.stateA1 : this.stateB1
     const writeState1 = this.isA ? this.stateB1 : this.stateA1
@@ -439,6 +444,7 @@ export class GPGPUParticleSystem {
     this.renderMaterial.uniforms.uStateMap.value = writeState1.texture
     this.renderMaterial.uniforms.uStateMap2.value = writeState2.texture
     this.renderMaterial.uniforms.uColor.value.copy(color)
+    this.renderMaterial.uniforms.uVfxIntensity.value = THREE.MathUtils.clamp(vfxIntensity, 0, 1)
   }
 
   public dispose() {

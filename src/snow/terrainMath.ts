@@ -55,8 +55,8 @@ function gradientNoise3D(x: number, y: number, z: number): number {
 }
 
 /**
- * Intended procedural profile sampled once into the shared heightfield.
- * Dynamic spell deformation is intentionally visual-only.
+ * Intended procedural profile sampled once into the shared base heightfield.
+ * Rideable spell deformation is layered on by RideableDeformationField.
  */
 export function evaluateTerrainProfile(x: number, z: number): number {
   const slope = -z * 0.12

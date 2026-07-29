@@ -3,18 +3,18 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
-import { getTerrainHeight } from '../snow/terrainMath'
+import type { RideableDeformationField } from '../snow/RideableDeformationField'
 import { GPGPUParticleSystem } from './GPGPUParticleSystem'
 
 interface GPGPUSpellParticlesProps {
   readonly activeSpell: SpellEffect
   readonly brushRef: React.RefObject<BrushState>
   readonly isEmitting: boolean
+  readonly deformationField: RideableDeformationField
 }
 
 function spellTypeToIndex(vfxType: SpellEffect['vfxType']): number {
   switch (vfxType) {
-    case 'spray': return 0
     case 'liquid_stream': return 1
     case 'frost': return 2
     case 'thermal': return 3
@@ -27,6 +27,7 @@ export function GPGPUSpellParticles({
   activeSpell,
   brushRef,
   isEmitting,
+  deformationField,
 }: GPGPUSpellParticlesProps) {
   const { gl, scene } = useThree()
   const idleTimer = useRef<number>(0)
@@ -44,7 +45,9 @@ export function GPGPUSpellParticles({
 
   useFrame((state, delta) => {
     const brush = brushRef.current ?? { pos: new THREE.Vector3(999, 999, 0.5) }
-    const emitRate = isEmitting && brush.pos.x < 100 ? 0.35 : 0.0
+    const emitRate = isEmitting && brush.pos.x < 100
+      ? 0.35 * activeSpell.vfxIntensity
+      : 0.0
 
     // Optimization: Stop GPU compute simulation when idle for > 1.5 seconds to save 100% compute overhead
     if (emitRate === 0) {
@@ -60,7 +63,7 @@ export function GPGPUSpellParticles({
 
     const emitterPosRadius = new THREE.Vector4(
       brush.pos.x,
-      getTerrainHeight(brush.pos.x, brush.pos.y) + 0.15,
+      deformationField.getHeight(brush.pos.x, brush.pos.y) + 0.15,
       brush.pos.y,
       activeSpell.brushRadius * 1.5,
     )
@@ -75,7 +78,8 @@ export function GPGPUSpellParticles({
       emitterPosRadius,
       emitRate,
       spellIdx,
-      color
+      color,
+      activeSpell.vfxIntensity,
     )
   })
 

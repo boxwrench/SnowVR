@@ -48,11 +48,11 @@ void main() {
   float wetness = current.a;
 
   if (uBrushDepth >= 0.0) {
-    // DIG / TRENCH / MELT MODE (Spells 1, 2, 4)
+    // DIG / TRENCH / MELT MODE
     depression = clamp(depression + stamp * uBrushDepth * 0.45 * uFrameScale, 0.0, 1.0);
     berm = clamp(berm + bermRing * uBrushDepth * uBrushBerm * 0.55 * uFrameScale, 0.0, 1.0);
   } else {
-    // BUILD HEIGHT / ICE SPIRE / VORTEX MOUNTAIN MODE (Spells 3, 5)
+    // BUILD HEIGHT / VORTEX MOUNTAIN MODE
     float buildHeight = -uBrushDepth;
     berm = clamp(berm + stamp * buildHeight * 0.6 * uFrameScale, 0.0, 1.0);
     depression = max(0.0, depression - stamp * buildHeight * 0.5 * uFrameScale);

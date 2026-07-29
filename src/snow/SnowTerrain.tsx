@@ -9,6 +9,7 @@ import {
   TERRAIN_SEGMENTS,
   TERRAIN_SIZE,
 } from './terrainMath'
+import { RideableDeformationField } from './RideableDeformationField'
 
 export interface BrushState {
   pos: THREE.Vector3
@@ -16,6 +17,7 @@ export interface BrushState {
   berm: number
   ice: number
   wetness: number
+  affectsRide: boolean
 }
 
 interface SnowTerrainProps {
@@ -23,6 +25,7 @@ interface SnowTerrainProps {
   readonly windDecay: number
   readonly glintScale: number
   readonly glintIntensity: number
+  readonly deformationField: RideableDeformationField
 }
 
 export function SnowTerrain({
@@ -30,6 +33,7 @@ export function SnowTerrain({
   windDecay,
   glintScale,
   glintIntensity,
+  deformationField,
 }: SnowTerrainProps) {
   const { gl } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
@@ -72,6 +76,7 @@ export function SnowTerrain({
       berm: 1.2,
       ice: 0,
       wetness: 0,
+      affectsRide: false,
     }
 
     // Update GPU ping-pong deformation FBO with direct ref read
@@ -85,6 +90,7 @@ export function SnowTerrain({
       brush.wetness,
       windDecay
     )
+    deformationField.update(delta, brush, windDecay)
 
     // Pass latest deformation texture to snow material
     snowMaterial.uniforms.uDeformationMap.value = deformationBuffer.texture

@@ -4,7 +4,8 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { AVAILABLE_SPELLS, type SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
-import { getTerrainHeight, getTerrainNormal, TERRAIN_HALF_SIZE } from '../snow/terrainMath'
+import type { RideableDeformationField } from '../snow/RideableDeformationField'
+import { TERRAIN_HALF_SIZE } from '../snow/terrainMath'
 import {
   createMovementKeyState,
   resetMovementKeys,
@@ -20,6 +21,12 @@ import {
 } from './loopTransition'
 import { getXrChaseYaw } from './chaseCamera'
 import { resolveTerrainAim } from './terrainAim'
+import {
+  applySlopeGravity,
+  getIceBoostFactor,
+  getSurfaceFriction,
+  getSurfaceMaxSpeed,
+} from './surfacePhysics'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
@@ -30,6 +37,7 @@ interface SnowSurferControllerProps {
   readonly onVrCastingChange?: (casting: boolean) => void
   readonly onTelemetry?: (telemetry: SurferTelemetry) => void
   readonly riderPositionRef: React.RefObject<THREE.Vector3>
+  readonly deformationField: RideableDeformationField
 }
 
 export function SnowSurferController({
@@ -41,6 +49,7 @@ export function SnowSurferController({
   onVrCastingChange,
   onTelemetry,
   riderPositionRef,
+  deformationField,
 }: SnowSurferControllerProps) {
   const { camera, pointer, raycaster } = useThree()
   const session = useXR((state) => state.session)
@@ -50,11 +59,15 @@ export function SnowSurferController({
   const rightController = useXRInputSourceState('controller', 'right')
 
   // Character Physics State
-  const position = useRef<THREE.Vector3>(new THREE.Vector3(0, getTerrainHeight(0, 0) + 0.1, 0))
+  const position = useRef<THREE.Vector3>(
+    new THREE.Vector3(0, deformationField.getHeight(0, 0) + 0.1, 0),
+  )
   const velocity = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
   const heading = useRef<number>(0) // Yaw angle in radians
   const bankRoll = useRef<number>(0) // Roll angle for turning lean
   const loopTransition = useRef(createLoopTransitionState())
+  const terrainNormal = useRef(new THREE.Vector3(0, 1, 0))
+  const iceTravelDirection = useRef(new THREE.Vector3(0, 0, 1))
 
   // Aiming Target Position
   const aimTargetPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
@@ -150,10 +163,19 @@ export function SnowSurferController({
     const activeSpellCasting = desktopCasting || questInput.casting
 
     // ─── 2. DELTA-TIME EXPONENTIAL DAMPING PHYSICS ───
+    deformationField.getNormal(
+      position.current.x,
+      position.current.z,
+      terrainNormal.current,
+    )
+    const iceBoostFactor = getIceBoostFactor(
+      deformationField.getIce(position.current.x, position.current.z),
+    )
+    const wetness = deformationField.getWetness(position.current.x, position.current.z)
     const turnSpeed = 3.0 * dt
-    const maxSpeed = boostInput ? 28.0 : 16.0
+    const maxSpeed = getSurfaceMaxSpeed(boostInput, iceBoostFactor)
     const accelRate = (boostInput ? 40.0 : 25.0) * dt
-    const frictionFactor = Math.exp(-2.2 * dt)
+    const frictionFactor = Math.exp(-getSurfaceFriction(iceBoostFactor, wetness) * dt)
 
     heading.current += turnInput * turnSpeed
     const targetBank = turnInput * -0.4
@@ -171,13 +193,23 @@ export function SnowSurferController({
       velocity.current.addScaledVector(moveDir, accelRate * forwardInput)
     }
 
+    if (iceBoostFactor > 0) {
+      if (velocity.current.lengthSq() > 0.09) {
+        iceTravelDirection.current.copy(velocity.current).normalize()
+      } else {
+        iceTravelDirection.current.copy(moveDir)
+      }
+      velocity.current.addScaledVector(
+        iceTravelDirection.current,
+        18 * iceBoostFactor * dt,
+      )
+    }
+
     velocity.current.multiplyScalar(frictionFactor)
+    applySlopeGravity(velocity.current, terrainNormal.current, dt)
     if (velocity.current.length() > maxSpeed) {
       velocity.current.setLength(maxSpeed)
     }
-
-    // Downhill gravity assistance along +Z axis
-    velocity.current.z += 1.8 * dt
 
     position.current.addScaledVector(velocity.current, dt)
     position.current.x = THREE.MathUtils.clamp(position.current.x, -56, 56)
@@ -205,17 +237,20 @@ export function SnowSurferController({
     }
 
     // Ground position Y to terrain elevation
-    const terrainY = getTerrainHeight(position.current.x, position.current.z)
+    const terrainY = deformationField.getHeight(position.current.x, position.current.z)
     position.current.y = terrainY + 0.1
     riderPositionRef.current?.copy(position.current)
 
-    // Orient surfer with terrain slope normal
-    const normal = getTerrainNormal(position.current.x, position.current.z)
-    const terrainNormalVec = new THREE.Vector3(normal.nx, normal.ny, normal.nz)
+    // Orient the surfer to the base terrain plus rideable spell deformation.
+    const terrainNormalVec = deformationField.getNormal(
+      position.current.x,
+      position.current.z,
+      terrainNormal.current,
+    )
 
     const speed = velocity.current.length()
     const carvingIntensity = speed > 0.5
-      ? THREE.MathUtils.clamp((speed / 28) * (0.35 + Math.abs(bankRoll.current) * 1.75), 0, 1)
+      ? THREE.MathUtils.clamp((speed / 34) * (0.35 + Math.abs(bankRoll.current) * 1.75), 0, 1)
       : 0
     const telemetry: SurferTelemetry = {
       speed,
@@ -254,7 +289,7 @@ export function SnowSurferController({
         castOrigin.current,
         controllerDirection.current,
         moveDir,
-        getTerrainHeight,
+        deformationField.getHeight,
         aimTargetPos.current,
         { terrainHalfSize: TERRAIN_HALF_SIZE },
       )
@@ -264,10 +299,13 @@ export function SnowSurferController({
       const hit = new THREE.Vector3()
       if (raycaster.ray.intersectPlane(plane, hit)) {
         aimTargetPos.current.copy(hit)
-        aimTargetPos.current.y = getTerrainHeight(hit.x, hit.z) + 0.05
+        aimTargetPos.current.y = deformationField.getHeight(hit.x, hit.z) + 0.05
       } else {
         aimTargetPos.current.copy(position.current).addScaledVector(moveDir, 6.0)
-        aimTargetPos.current.y = getTerrainHeight(aimTargetPos.current.x, aimTargetPos.current.z) + 0.05
+        aimTargetPos.current.y = deformationField.getHeight(
+          aimTargetPos.current.x,
+          aimTargetPos.current.z,
+        ) + 0.05
       }
     }
 
@@ -288,6 +326,7 @@ export function SnowSurferController({
         brushRef.current.berm = activeSpell.brushBerm * mult
         brushRef.current.ice = activeSpell.brushIce * mult
         brushRef.current.wetness = activeSpell.brushWetness * mult
+        brushRef.current.affectsRide = true
 
         // Trigger VR Controller Haptics while casting
         if (rightGamepad && now - lastHapticTime.current >= 60) {
@@ -307,11 +346,13 @@ export function SnowSurferController({
         brushRef.current.berm = 0.6 * (0.6 + Math.abs(bankRoll.current) * 2.0)
         brushRef.current.ice = 0.2
         brushRef.current.wetness = 0.0
+        brushRef.current.affectsRide = false
       } else {
         brushRef.current.depth = 0
         brushRef.current.berm = 0
         brushRef.current.ice = 0
         brushRef.current.wetness = 0
+        brushRef.current.affectsRide = false
       }
     }
 

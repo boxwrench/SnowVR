@@ -23,6 +23,11 @@ float sampleTerrainHeight(vec2 planeUv) {
   return texture2D(uTerrainHeightMap, terrainTexelUv(planeUv)).r;
 }
 
+float sampleDeformationHeight(vec4 deform) {
+  // Wet displaced mass forms taller Hydro Stream halfpipe walls.
+  return -deform.r * 1.2 + deform.g * (1.8 + deform.a * 1.4);
+}
+
 void main() {
   vUv = uv;
   
@@ -31,8 +36,8 @@ void main() {
   vDeformation = deform;
   
   float naturalHeight = sampleTerrainHeight(uv);
-  // Allow positive berm height to build high ice spires & vortex mountains!
-  float deformHeight = (-deform.r * 1.2 + deform.g * 1.8) * uDisplacementScale;
+  // Allow positive berm height to build side berms and vortex mountains.
+  float deformHeight = sampleDeformationHeight(deform) * uDisplacementScale;
   
   // Displace local Z (which maps to World Y when plane is rotated [-PI/2, 0, 0])
   vec3 displacedPosition = position;
@@ -57,10 +62,10 @@ void main() {
   vec4 deformD = texture2D(uDeformationMap, clamp(uvNegZ, 0.0, 1.0));
   vec4 deformU = texture2D(uDeformationMap, clamp(uvPosZ, 0.0, 1.0));
   
-  hL += (-deformL.r * 1.2 + deformL.g * 1.8) * uDisplacementScale;
-  hR += (-deformR.r * 1.2 + deformR.g * 1.8) * uDisplacementScale;
-  hD += (-deformD.r * 1.2 + deformD.g * 1.8) * uDisplacementScale;
-  hU += (-deformU.r * 1.2 + deformU.g * 1.8) * uDisplacementScale;
+  hL += sampleDeformationHeight(deformL) * uDisplacementScale;
+  hR += sampleDeformationHeight(deformR) * uDisplacementScale;
+  hD += sampleDeformationHeight(deformD) * uDisplacementScale;
+  hU += sampleDeformationHeight(deformU) * uDisplacementScale;
   
   vec3 normalCalc = normalize(vec3(hL - hR, 2.0 * worldStep, hD - hU));
   vWorldNormal = normalCalc;

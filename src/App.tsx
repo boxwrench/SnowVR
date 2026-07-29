@@ -1,7 +1,7 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { XR } from '@react-three/xr'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
 import { Atmosphere } from './environment/Atmosphere'
@@ -12,6 +12,7 @@ import { SlalomPoles } from './environment/SlalomPoles'
 import { SnowAudioController } from './environment/SnowAudioController'
 import { AVAILABLE_SPELLS, type SpellEffect } from './experiments/SpellManager'
 import { SnowTerrain, type BrushState } from './snow/SnowTerrain'
+import { RideableDeformationField } from './snow/RideableDeformationField'
 import { DevOverlay } from './ui/DevOverlay'
 import { SpellBar } from './ui/SpellBar'
 import { updateCastingKeys, type SurferTelemetry } from './xr/inputState'
@@ -49,6 +50,7 @@ export function App() {
   const riderPositionRef = useRef(new THREE.Vector3())
   const isCasting = desktopCasting || vrCasting
   const showXrDevPanel = new URLSearchParams(window.location.search).get('dev') === '1'
+  const deformationField = useMemo(() => new RideableDeformationField(), [])
 
   // Single mutable BrushState ref to prevent per-frame React re-renders!
   const brushRef = useRef<BrushState>({
@@ -57,6 +59,7 @@ export function App() {
     berm: 1.2,
     ice: 0,
     wetness: 0,
+    affectsRide: false,
   })
 
   // Shader & Physics tuning state
@@ -147,7 +150,7 @@ export function App() {
         </p>
         <div style={{ fontSize: '0.82rem', color: '#74d7ee', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div>🥽 <b>Quest Controllers:</b> Left Thumbstick = Steer/Move | Right Trigger = Cast Spell | A/B = Swap Spell</div>
-          <div>⌨️ <b>Keys 1 to 5:</b> Select Active Spell (Carver, Hydro Jet, Frost Spire, Melt, Vortex)</div>
+          <div>⌨️ <b>Keys 1 to 4:</b> Select Active Spell (Hydro, Glacier Trail, Melt, Vortex)</div>
           <div>🏎️ <b>WASD / Arrows:</b> Ride & Steer Snowboard (Space = Speed Boost!)</div>
           <div>✨ <b>Left Click (or Shift / E):</b> Fire Active Spell Stream</div>
         </div>
@@ -188,6 +191,7 @@ export function App() {
             windDecay={windDecay}
             glintScale={glintScale}
             glintIntensity={glintIntensity}
+            deformationField={deformationField}
           />
 
           <SnowSurferController
@@ -199,6 +203,7 @@ export function App() {
             onVrCastingChange={setVrCasting}
             onTelemetry={setTelemetry}
             riderPositionRef={riderPositionRef}
+            deformationField={deformationField}
           />
 
           <XRStatusPanel
@@ -217,6 +222,7 @@ export function App() {
             activeSpell={activeSpell}
             brushRef={brushRef}
             isEmitting={isCasting}
+            deformationField={deformationField}
           />
 
           <OrbitControls enabled={isOrbiting} maxPolarAngle={Math.PI / 2 - 0.02} minDistance={4} maxDistance={60} />
