@@ -66,11 +66,6 @@ export function SnowTerrain({
   }, [deformationBuffer, snowMaterial, terrainHeightMap])
 
   useFrame((_, delta) => {
-    // Enable Quest 3 Native Fixed Foveated Rendering (Medium level = 0.5)
-    if (gl.xr.isPresenting) {
-      gl.xr.setFoveation(0.5)
-    }
-
     const brush = brushRef.current ?? {
       pos: new THREE.Vector3(999, 999, 0.5),
       depth: 0,

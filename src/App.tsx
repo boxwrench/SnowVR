@@ -15,8 +15,14 @@ import { SnowTerrain, type BrushState } from './snow/SnowTerrain'
 import { DevOverlay } from './ui/DevOverlay'
 import { SpellBar } from './ui/SpellBar'
 import { updateCastingKeys, type SurferTelemetry } from './xr/inputState'
+import {
+  INITIAL_PERFORMANCE_STATS,
+  type PerformanceStats,
+} from './xr/performanceStats'
 import { SnowSurferController } from './xr/SnowSurferController'
 import { xrStore } from './xr/store'
+import { XRPerformanceMonitor } from './xr/XRPerformanceMonitor'
+import { XRStatusPanel } from './xr/XRStatusPanel'
 
 export function App() {
   const [activeSpell, setActiveSpell] = useState<SpellEffect>(AVAILABLE_SPELLS[0])
@@ -29,9 +35,14 @@ export function App() {
     isCasting: false,
   })
   const [entryError, setEntryError] = useState<string | null>(null)
+  const [performanceStats, setPerformanceStats] = useState<PerformanceStats>(
+    INITIAL_PERFORMANCE_STATS,
+  )
   const castingKeysRef = useRef(new Set<string>())
   const mouseCastingRef = useRef(false)
+  const riderPositionRef = useRef(new THREE.Vector3())
   const isCasting = desktopCasting || vrCasting
+  const showXrDevPanel = new URLSearchParams(window.location.search).get('dev') === '1'
 
   // Single mutable BrushState ref to prevent per-frame React re-renders!
   const brushRef = useRef<BrushState>({
@@ -147,6 +158,7 @@ export function App() {
         setGlintScale={setGlintScale}
         glintIntensity={glintIntensity}
         setGlintIntensity={setGlintIntensity}
+        stats={performanceStats}
       />
 
       <SpellBar activeSpell={activeSpell} onSelectSpell={setActiveSpell} />
@@ -181,6 +193,19 @@ export function App() {
             desktopCasting={desktopCasting}
             onVrCastingChange={setVrCasting}
             onTelemetry={setTelemetry}
+            riderPositionRef={riderPositionRef}
+          />
+
+          <XRStatusPanel
+            activeSpell={activeSpell}
+            speed={telemetry.speed}
+            isCasting={isCasting}
+            riderPositionRef={riderPositionRef}
+          />
+
+          <XRPerformanceMonitor
+            showInHeadset={showXrDevPanel}
+            onStats={setPerformanceStats}
           />
 
           <GPGPUSpellParticles

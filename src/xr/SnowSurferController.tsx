@@ -27,6 +27,7 @@ interface SnowSurferControllerProps {
   readonly desktopCasting?: boolean
   readonly onVrCastingChange?: (casting: boolean) => void
   readonly onTelemetry?: (telemetry: SurferTelemetry) => void
+  readonly riderPositionRef: React.RefObject<THREE.Vector3>
 }
 
 export function SnowSurferController({
@@ -37,6 +38,7 @@ export function SnowSurferController({
   desktopCasting = false,
   onVrCastingChange,
   onTelemetry,
+  riderPositionRef,
 }: SnowSurferControllerProps) {
   const { camera, pointer, raycaster } = useThree()
   const session = useXR((state) => state.session)
@@ -201,6 +203,7 @@ export function SnowSurferController({
     // Ground position Y to terrain elevation
     const terrainY = getTerrainHeight(position.current.x, position.current.z)
     position.current.y = terrainY + 0.1
+    riderPositionRef.current?.copy(position.current)
 
     // Orient surfer with terrain slope normal
     const normal = getTerrainNormal(position.current.x, position.current.z)

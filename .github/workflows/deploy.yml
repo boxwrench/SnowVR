@@ -34,8 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build SnowVR demo
-        run: npm run build
+      - name: Validate and build SnowVR demo
+        run: npm run validate
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5

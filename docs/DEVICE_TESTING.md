@@ -1,49 +1,60 @@
-# Meta Quest 3 & WebXR Device Testing Guide
+# Meta Quest 3 and WebXR Device Testing
 
-This guide outlines how to test **SnowVR** on desktop emulators and physical Meta Quest 3 VR headsets.
-
----
-
-## 💻 1. Desktop Quest 3 Emulator Testing (IWER)
-
-SnowVR includes built-in support for the **WebXR IWER emulator** profile for Meta Quest 3.
+## Desktop browser
 
 ```bash
 npm run dev
 ```
 
-1. Open `http://localhost:5174` in Chrome.
-2. In development mode (`import.meta.env.DEV`), the Quest 3 emulator profile installs automatically.
-3. Click **🥽 Enter VR**.
-4. The on-screen Quest 3 controller overlay allows testing 6DOF controller rays, select inputs, handedness, and spatial tracking without connecting a physical headset.
+Open `http://localhost:5174/SnowVR/`.
 
----
+- Normal development uses the desktop camera and controls.
+- Add `?emulate=1` to opt into the IWER Quest 3 emulator when native immersive VR is unavailable.
+- Add `?dev=1` to show the tuning UI and render-loop diagnostics.
+- Both flags can be combined: `?emulate=1&dev=1`.
 
-## 🥽 2. Physical Meta Quest 3 Testing (USB / ADB Reverse)
+The emulator is disabled by default and is never force-installed over a browser that already provides immersive WebXR.
 
-To test directly inside the Meta Quest Browser over USB:
+## Physical Quest over USB
 
-### Step 1: Connect Quest 3 via USB
-Enable Developer Mode on your Meta Quest 3 and connect it to your PC with a USB-C cable.
+1. Enable Developer Mode for the headset in the Meta Horizon mobile app.
+2. Connect the Quest by USB, put on the headset, and accept the USB debugging prompt. Select the persistent authorization option if appropriate for the development computer.
+3. Confirm that `adb devices -l` reports the headset as `device`, not `unauthorized`.
+4. Start the development server and reverse the port:
 
-### Step 2: Set Up ADB Reverse Port Forwarding
-```bash
-adb reverse tcp:5174 tcp:5174
-```
+   ```bash
+   npm run dev
+   adb reverse tcp:5174 tcp:5174
+   ```
 
-### Step 3: Open Meta Quest Browser
-Inside the Quest 3 headset, open Meta Quest Browser and navigate to:
-`http://localhost:5174`
+5. In Meta Quest Browser, open `http://localhost:5174/SnowVR/` and select **Enter VR**.
 
-Click **Enter VR** to enter full immersive 6DOF WebXR!
+Use `http://localhost:5174/SnowVR/?dev=1` for the head-following XR diagnostics panel. It reports measurements from the actual XR render loop, including average and p95 frame time, session refresh rate, foveation, and projection-layer dimensions.
 
----
+## Controller gate
 
-## 🌐 3. Local Network HTTPS Testing
+Verify these interactions with both controllers awake:
 
-If ADB is unavailable, run Vite with HTTPS enabled for same-network Quest testing:
+- Left thumbstick steers and drives forward/backward.
+- Left trigger, left grip, or Space boosts.
+- Right trigger casts and releases cleanly.
+- A or B cycles spells once per press.
+- Casting produces throttled right-controller haptics.
+- Disconnecting or ending the XR session clears casting state.
 
-```bash
-npx vite --host --https
-```
-Then navigate to `https://<YOUR_PC_IP>:5174` inside your Meta Quest Browser.
+## Endless-run gate
+
+Run at least two terrain loops at normal speed and two while boosted. Each loop should:
+
+- fade fully into the snow veil before the coordinate rebase;
+- preserve rider velocity and heading;
+- avoid a camera snap in desktop and XR;
+- return smoothly without exposing the terrain edge.
+
+## Performance soak
+
+For a release candidate, run a ten-minute native Quest session with representative steering, boost, and spell casting. At 72 Hz, watch the in-headset `?dev=1` panel for sustained frame pacing and inspect browser/ADB logs for WebGL, WebXR, or out-of-memory errors.
+
+## Same-network testing
+
+WebXR requires a secure context except for localhost. For testing without ADB reverse, serve the app over HTTPS with a trusted certificate and open the computer's HTTPS address from the headset. A raw LAN HTTP address is not sufficient for immersive WebXR.

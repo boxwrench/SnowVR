@@ -1,45 +1,64 @@
-# SnowVR Shader & Mathematics Reference
+# SnowVR Shader and Terrain Reference
 
-This document explains the mathematical formulas and GLSL shader pipelines used in **SnowVR**.
+## Shared base heightfield
 
----
+`src/snow/terrainMath.ts` evaluates the intended slope, transverse dune ridges, and sastrugi profile once into a 257 x 257 float grid over a 120 m square.
 
-## 🧪 1. FBO Simulation Compute Shader (`SnowDeformationBuffer.ts`)
+Texture coordinates map to world coordinates as:
 
-The simulation shader executes a 2D fragment pass over a 2048×2048 `RGBA16F` texture.
+```text
+worldX = (u - 0.5) * 120
+worldZ = (0.5 - v) * 120
+```
 
-### UV-to-World Coordinate Mapping:
-$$\text{worldXZ} = \left( (uv.x - 0.5) \cdot 120.0, (0.5 - uv.y) \cdot 120.0 \right)$$
+Texture V therefore runs opposite world Z. The terrain vertex shader samples texel centers with nearest filtering so every mesh vertex receives exactly the corresponding heightfield value. CPU grounding interpolates the same grid using the same triangle diagonal as Three.js `PlaneGeometry`.
 
-### Anisotropic Slump Diffusion:
-Loose berms slump faster than packed trench floors:
-$$\text{neighborBermAvg} = \frac{\text{top.g} + \text{bottom.g} + \text{left.g} + \text{right.g}}{4}$$
-$$\text{bermSlump} = (\text{berm} - \text{neighborBermAvg}) \cdot 2.2 \cdot \Delta t$$
+Dynamic deformation is intentionally not included in CPU collision or grounding yet.
 
-### Berm-to-Depression Collapse:
-$$\text{bermToTrench} = \max(0, \text{neighborBermAvg} - \text{depression}) \cdot 1.2 \cdot \Delta t$$
+## Deformation simulation
 
----
+`SnowDeformationBuffer.ts` executes one fragment pass per frame over ping-pong 1024 x 1024 `RGBA16F` render targets.
 
-## ❄️ 2. Terrain Vertex Shader (`SnowMaterial.ts`)
+| Channel | State |
+| --- | --- |
+| R | Depression depth |
+| G | Berm or spire height |
+| B | Ice compression |
+| A | Wetness or slush |
 
-### Terrain Height Noise Stack:
-$$\text{height} = \text{sin}(\text{windP.x} \cdot 0.12) \cdot 2.8 + \text{gradientNoise}(\text{windP} \cdot 0.05) \cdot 3.5 + \text{sastrugi} + \text{rockBump}$$
+The brush uses the same UV-to-world mapping as the heightfield. Stamp accumulation is scaled by `deltaTime * 72`, preserving the authored 72 Hz strength at 72, 80, 90, and 120 Hz. Diffusion, wind refill, and drying are already elapsed-time based.
 
-### Displaced Vertex Normal Calculation (Central Differences):
-$$\mathbf{N} = \text{normalize}\left( \begin{pmatrix} h(x - \epsilon, z) - h(x + \epsilon, z) \\ 2\epsilon \\ h(x, z - \epsilon) - h(x, z + \epsilon) \end{pmatrix} \right)$$
+The rendered displacement is:
 
----
+```text
+deformHeight = (-depression * 1.2 + berm * 1.8) * displacementScale
+```
 
-## 💎 3. Micro-Crystal Glint & SSS Shading (`SnowMaterial.ts`)
+## Displaced normals
 
-### Subsurface Scattering Back-Scatter:
-$$\text{sssBackscatter} = \max\left(0, -\mathbf{V} \cdot (\mathbf{L} + 0.4\mathbf{N})\right)$$
+Normals sample adjacent base-height vertices and matching deformation coordinates. Because V and world Z are inverted:
 
-### Procedural 3D Micro-Facet Glints:
-Glint sparkles flash when the half-vector $\mathbf{H} = \text{normalize}(\mathbf{L} + \mathbf{V})$ aligns with grazing micro-facets:
-$$\text{glint} = \text{step}\left(0.982, \text{hash3D}(\lfloor \mathbf{P} \cdot \text{scale} \rfloor)\right) \cdot \left(\max(0, \mathbf{N} \cdot \mathbf{H})\right)^{48}$$
+```text
+negative world Z -> uv + (0, texel)
+positive world Z -> uv - (0, texel)
+```
 
-### GGX Wet Slush Specular Distribution:
-$$D_{\text{GGX}}(N \cdot H, \alpha) = \frac{\alpha^2}{\pi \left( (N \cdot H)^2 (\alpha^2 - 1) + 1 \right)^2}$$
-where roughness $\alpha$ is derived from the wetness channel $A$.
+The central-difference normal is:
+
+```text
+normalize(heightNegX - heightPosX, 2 * worldStep, heightNegZ - heightPosZ)
+```
+
+## Surface shading
+
+`SnowMaterial.ts` combines:
+
+- wrapped sun diffuse and sky ambient;
+- slope-based rock blending;
+- depth-tinted subsurface backscatter;
+- GGX wet/ice specular;
+- Fresnel enhancement in the foveal region;
+- multi-frequency snow micro-normals;
+- screen-space quality tiers for glints and expensive shading.
+
+Native fixed foveation is configured once by the XR store at `0.5`. The material's own foveal quality tiers are a separate shader optimization.

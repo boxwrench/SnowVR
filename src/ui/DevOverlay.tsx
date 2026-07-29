@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import type { PerformanceStats } from '../xr/performanceStats'
 
 interface DevOverlayProps {
   readonly windDecay: number
@@ -7,6 +8,7 @@ interface DevOverlayProps {
   readonly setGlintScale: (v: number) => void
   readonly glintIntensity: number
   readonly setGlintIntensity: (v: number) => void
+  readonly stats: PerformanceStats
 }
 
 export function DevOverlay({
@@ -16,39 +18,14 @@ export function DevOverlay({
   setGlintScale,
   glintIntensity,
   setGlintIntensity,
+  stats,
 }: DevOverlayProps) {
-  const [fps, setFps] = useState<number>(72)
-  const [frameTime, setFrameTime] = useState<number>(13.8)
-  const [showDevPanel, setShowDevPanel] = useState<boolean>(false)
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get('dev') === '1') {
-      setShowDevPanel(true)
-    }
-
-    let frameCount = 0
-    let lastTime = performance.now()
-    let animationFrameId: number
-
-    const tick = () => {
-      frameCount++
-      const now = performance.now()
-      const delta = now - lastTime
-      if (delta >= 500) {
-        const currentFps = Math.round((frameCount * 1000) / delta)
-        const currentFrameTime = parseFloat((delta / frameCount).toFixed(1))
-        setFps(currentFps)
-        setFrameTime(currentFrameTime)
-        frameCount = 0
-        lastTime = now
-      }
-      animationFrameId = requestAnimationFrame(tick)
-    }
-
-    animationFrameId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animationFrameId)
-  }, [])
+  const [showDevPanel, setShowDevPanel] = useState(
+    () => new URLSearchParams(window.location.search).get('dev') === '1',
+  )
+  const fps = Math.round(stats.fps)
+  const refreshRate = stats.refreshRate === undefined ? '--' : `${stats.refreshRate.toFixed(0)} Hz`
+  const foveation = stats.foveation === undefined ? '--' : stats.foveation.toFixed(2)
 
   return (
     <>
@@ -75,21 +52,31 @@ export function DevOverlay({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#94a3b8', fontWeight: 600 }}>Quest 3 Target:</span>
-          <span style={{ color: fps >= 70 ? '#4ade80' : fps >= 60 ? '#facc15' : '#ef4444', fontWeight: 700 }}>
-            72 FPS
+          <span style={{ color: '#4ade80', fontWeight: 700 }}>
+            72 Hz
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#94a3b8' }}>Native FFR:</span>
-          <span style={{ color: '#38bdf8', fontWeight: 600 }}>Medium</span>
+          <span style={{ color: '#94a3b8' }}>Session:</span>
+          <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+            {stats.isPresenting ? `XR ${refreshRate}` : 'Desktop'}
+          </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#94a3b8' }}>Realtime FPS:</span>
-          <span style={{ fontWeight: 700 }}>{fps}</span>
+          <span style={{ fontWeight: 700 }}>{fps || '--'}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#94a3b8' }}>Frame Time:</span>
-          <span>{frameTime} ms</span>
+          <span>{stats.averageFrameMs.toFixed(1)} ms avg</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#94a3b8' }}>P95 / FFR:</span>
+          <span>{stats.p95FrameMs.toFixed(1)} ms / {foveation}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#94a3b8' }}>Projection:</span>
+          <span>{stats.projectionWidth || '--'} × {stats.projectionHeight || '--'}</span>
         </div>
         <button
           type="button"
