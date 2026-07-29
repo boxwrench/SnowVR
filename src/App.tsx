@@ -36,7 +36,6 @@ export function App() {
   const [windDecay, setWindDecay] = useState<number>(0.15)
   const [glintScale, setGlintScale] = useState<number>(85.0)
   const [glintIntensity, setGlintIntensity] = useState<number>(2.5)
-  const [foveaRadius, setFoveaRadius] = useState<number>(0.28)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -109,8 +108,6 @@ export function App() {
         setGlintScale={setGlintScale}
         glintIntensity={glintIntensity}
         setGlintIntensity={setGlintIntensity}
-        foveaRadius={foveaRadius}
-        setFoveaRadius={setFoveaRadius}
       />
 
       <SpellBar activeSpell={activeSpell} onSelectSpell={setActiveSpell} />
@@ -135,7 +132,6 @@ export function App() {
             windDecay={windDecay}
             glintScale={glintScale}
             glintIntensity={glintIntensity}
-            foveaRadius={foveaRadius}
           />
 
           <SnowSurferController

@@ -25,7 +25,7 @@ export function SnowSurferController({
   isCasting = false,
   setIsCasting,
 }: SnowSurferControllerProps) {
-  const { camera, pointer, raycaster } = useThree()
+  const { camera, pointer, raycaster, scene } = useThree()
   const session = useXR((state) => state.session)
 
   // XR Controller inputs
@@ -37,6 +37,7 @@ export function SnowSurferController({
   const velocity = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
   const heading = useRef<number>(0) // Yaw angle in radians
   const bankRoll = useRef<number>(0) // Roll angle for turning lean
+  const blizzardProgress = useRef<number>(0)
 
   // Aiming Target Position
   const aimTargetPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0))
@@ -178,9 +179,18 @@ export function SnowSurferController({
     position.current.addScaledVector(velocity.current, dt)
     position.current.x = THREE.MathUtils.clamp(position.current.x, -56, 56)
 
-    // Continuous Endless Downhill Loop
+    // Continuous Endless Downhill Loop with Blizzard Transition
     if (position.current.z > 50) {
       position.current.z -= 80
+      blizzardProgress.current = 1.0
+    }
+
+    if (blizzardProgress.current > 0) {
+      blizzardProgress.current = Math.max(0, blizzardProgress.current - dt * 2.0)
+      if (scene.fog && scene.fog instanceof THREE.Fog) {
+        scene.fog.near = THREE.MathUtils.lerp(50, 5, blizzardProgress.current)
+        scene.fog.far = THREE.MathUtils.lerp(140, 20, blizzardProgress.current)
+      }
     }
 
     // Ground position Y to terrain elevation

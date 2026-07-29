@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
@@ -28,8 +28,9 @@ export function GPGPUSpellParticles({
   isEmitting,
 }: GPGPUSpellParticlesProps) {
   const { gl, scene } = useThree()
+  const idleTimer = useRef<number>(0)
 
-  // Adaptive Quest 3 Particle Budget: 64x64 = 4,096 particles (smooth performance, zero overdraw freeze)
+  // Adaptive Quest 3 Particle Budget: 64x64 = 4,096 particles
   const gpgpuSystem = useMemo(() => new GPGPUParticleSystem(64), [])
 
   useEffect(() => {
@@ -42,13 +43,26 @@ export function GPGPUSpellParticles({
 
   useFrame((state, delta) => {
     const brush = brushRef.current ?? { pos: new THREE.Vector3(999, 999, 0.5) }
+    const emitRate = isEmitting && brush.pos.x < 100 ? 0.35 : 0.0
+
+    // Optimization: Stop GPU compute simulation when idle for > 1.5 seconds to save 100% compute overhead
+    if (emitRate === 0) {
+      idleTimer.current += delta
+      if (idleTimer.current > 1.5) {
+        gpgpuSystem.renderMesh.visible = false
+        return
+      }
+    } else {
+      idleTimer.current = 0
+      gpgpuSystem.renderMesh.visible = true
+    }
+
     const emitterPos = new THREE.Vector3(
       brush.pos.x,
       brush.pos.y,
       activeSpell.brushRadius * 1.5
     )
 
-    const emitRate = isEmitting && brush.pos.x < 100 ? 0.35 : 0.0
     const spellIdx = spellTypeToIndex(activeSpell.vfxType)
     const color = new THREE.Color(activeSpell.color)
 

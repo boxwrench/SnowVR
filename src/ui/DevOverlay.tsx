@@ -7,8 +7,6 @@ interface DevOverlayProps {
   readonly setGlintScale: (v: number) => void
   readonly glintIntensity: number
   readonly setGlintIntensity: (v: number) => void
-  readonly foveaRadius: number
-  readonly setFoveaRadius: (v: number) => void
 }
 
 export function DevOverlay({
@@ -18,21 +16,17 @@ export function DevOverlay({
   setGlintScale,
   glintIntensity,
   setGlintIntensity,
-  foveaRadius,
-  setFoveaRadius,
 }: DevOverlayProps) {
   const [fps, setFps] = useState<number>(72)
   const [frameTime, setFrameTime] = useState<number>(13.8)
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false)
 
   useEffect(() => {
-    // Check if ?dev=1 is in URL
     const urlParams = new URLSearchParams(window.location.search)
     if (urlParams.get('dev') === '1') {
       setShowDevPanel(true)
     }
 
-    // Lightweight FPS & Frame Time sampler
     let frameCount = 0
     let lastTime = performance.now()
     let animationFrameId: number
@@ -58,7 +52,7 @@ export function DevOverlay({
 
   return (
     <>
-      {/* Lightweight Quest 3 Performance Stats Overlay (Always active) */}
+      {/* Quest 3 Performance Overlay */}
       <div
         style={{
           position: 'absolute',
@@ -76,7 +70,7 @@ export function DevOverlay({
           display: 'flex',
           flexDirection: 'column',
           gap: '4px',
-          minWidth: '150px',
+          minWidth: '160px',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -84,6 +78,10 @@ export function DevOverlay({
           <span style={{ color: fps >= 70 ? '#4ade80' : fps >= 60 ? '#facc15' : '#ef4444', fontWeight: 700 }}>
             72 FPS
           </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#94a3b8' }}>Native FFR:</span>
+          <span style={{ color: '#38bdf8', fontWeight: 600 }}>Medium</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: '#94a3b8' }}>Realtime FPS:</span>
@@ -112,7 +110,7 @@ export function DevOverlay({
         </button>
       </div>
 
-      {/* Developer Tuning Panel (Hidden by default unless ?dev=1 or toggled) */}
+      {/* Developer Tuning Panel */}
       {showDevPanel && (
         <div className="overlay-panel dev-panel-overlay">
           <div className="dev-panel-title">Shader & Physics Tuning</div>
@@ -161,22 +159,6 @@ export function DevOverlay({
               step="0.2"
               value={glintIntensity}
               onChange={(e) => setGlintIntensity(parseFloat(e.target.value))}
-              className="control-slider"
-            />
-          </div>
-
-          <div className="control-group">
-            <div className="control-label">
-              <span>👁️ Fovea Radius</span>
-              <span>{foveaRadius.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              min="0.1"
-              max="0.6"
-              step="0.02"
-              value={foveaRadius}
-              onChange={(e) => setFoveaRadius(parseFloat(e.target.value))}
               className="control-slider"
             />
           </div>

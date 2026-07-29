@@ -17,7 +17,6 @@ interface SnowTerrainProps {
   readonly windDecay: number
   readonly glintScale: number
   readonly glintIntensity: number
-  readonly foveaRadius?: number
 }
 
 export function SnowTerrain({
@@ -25,9 +24,8 @@ export function SnowTerrain({
   windDecay,
   glintScale,
   glintIntensity,
-  foveaRadius = 0.28,
 }: SnowTerrainProps) {
-  const { gl, size } = useThree()
+  const { gl } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
 
   // 1024x1024 Quest-optimized deformation FBO buffer
@@ -42,6 +40,11 @@ export function SnowTerrain({
   }, [deformationBuffer, snowMaterial])
 
   useFrame((_, delta) => {
+    // Enable Quest 3 Native Fixed Foveated Rendering (Medium level = 0.5)
+    if (gl.xr.isPresenting) {
+      gl.xr.setFoveation(0.5)
+    }
+
     const brush = brushRef.current ?? {
       pos: new THREE.Vector3(999, 999, 0.5),
       depth: 0,
@@ -50,7 +53,7 @@ export function SnowTerrain({
       wetness: 0,
     }
 
-    // Update GPU ping-pong deformation FBO with direct ref read (zero React rerenders)
+    // Update GPU ping-pong deformation FBO with direct ref read
     deformationBuffer.update(
       gl,
       delta,
@@ -66,10 +69,6 @@ export function SnowTerrain({
     snowMaterial.uniforms.uDeformationMap.value = deformationBuffer.texture
     snowMaterial.uniforms.uGlintScale.value = glintScale
     snowMaterial.uniforms.uGlintIntensity.value = glintIntensity
-
-    // Foveated rendering uniforms
-    snowMaterial.uniforms.uFoveaRadius.value = foveaRadius
-    snowMaterial.uniforms.uResolution.value.set(size.width, size.height)
   })
 
   return (
