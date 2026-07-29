@@ -124,7 +124,6 @@ export function App() {
         shadows
       >
         <XR store={xrStore}>
-          <ambientLight intensity={0.8} color="#e0f2fe" />
           <Atmosphere />
           <DistantMountains />
           <FallingSnowParticles count={3000} />

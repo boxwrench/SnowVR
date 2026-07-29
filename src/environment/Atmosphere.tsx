@@ -18,7 +18,8 @@ export function Atmosphere() {
         turbidity={4.0}
       />
       
-      <ambientLight intensity={0.5} color="#6ba6cd" />
+      {/* Single unified ambient light for the scene */}
+      <ambientLight intensity={0.65} color="#b8d8ea" />
       
       <directionalLight
         ref={lightRef}
@@ -36,7 +37,8 @@ export function Atmosphere() {
         shadow-camera-bottom={-25}
       />
 
-      <fog attach="fog" args={['#244b66', 15, 45]} />
+      {/* Scene fog pushed out to match 120m terrain and shader fog blend range */}
+      <fog attach="fog" args={['#244b66', 60, 150]} />
     </>
   )
 }

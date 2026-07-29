@@ -1,46 +1,92 @@
-# SnowVR ❄️🥽
+# SnowVR ❄️🏂
 
-**SnowVR** is an open-source, high-fidelity WebXR procedural snow rendering and interaction sandbox. It combines GPU-driven clipmap terrain heightfields, 2048² toroidal deformation ping-pong state buffers, multi-scale PBR snow optics (Subsurface Scattering & micro-crystal glints), and a 5-spell dynamic interaction framework for desktop and Meta Quest 3 headsets.
+**SnowVR** is an open-source, high-fidelity WebXR procedural snow rendering and interaction sandbox. Ride a snowboard across a 120m arctic snowfield at up to 65 m/s, carve dynamic tracks into GPU-driven deformable terrain, and cast 5 elemental spells that reshape the landscape in real time — on desktop or in VR headsets.
+
+**🌐 Live Demo:** [`https://boxwrench.github.io/SnowVR/`](https://boxwrench.github.io/SnowVR/)
 
 ---
 
-## 🌟 Key Features
+## 🎮 Controls
 
-* **GPU-Driven Terrain & Shader Displacement:** 120m × 120m high-density mesh grid (512×512 vertex density) displaced entirely in the vertex shader with analytical sastrugi dune noise and triplanar rock cliff outcrops. Zero CPU geometry rebuilds per frame.
-* **2048² Toroidal Snow Deformation Buffer:** Ping-pongs two 2048×2048 `RGBA16F` half-float render targets (3.9 cm texels over 120m) tracking 4 physical surface state channels:
-  * **R:** Trench depression depth & impact craters.
-  * **G:** Displaced mass (raised side-berms, Frost Spires, Vortex Mountains).
-  * **B:** Hard ice compression factor.
-  * **A:** Water slush saturation with heat evaporation and wind drying.
-* **Physical Slump & Infill Simulation:** Anisotropic slump diffusion (loose berms slump 3× faster than packed trench floors), berm-to-trench collapse, and windward upwind infill.
-* **Multi-Scale Snow Shading & Advanced Optics:**
-  * **GGX Specular Slush Reflections:** Surface wetness channel (`vDeformation.a`) dynamically lowers roughness and boosts GGX specular reflections.
-  * **Subsurface Scattering (SSS):** Deep ice-blue backscatter (`#024773`) glowing through snow berms and trench walls.
-  * **3D Grazing-Angle Glints:** Procedural micro-crystal sparkles that flash dynamically as camera/headset angles shift.
-* **5-Spell Interaction Engine:**
-  1. **Snow Carver (`1`):** Precision narrow wake carver with crisp twin side-berms.
-  2. **Hydro Blast (`2`):** Explosive impact crater shockwave with a massive raised outer rim.
-  3. **Frost Spire (`3`):** Freezes tall crystalline ice spires rising high out of the ground.
-  4. **Thermal Melt (`4`):** Melts deep smooth trenches into shiny, reflective wet slush pools.
-  5. **Vortex Mountain (`5`):** Pulls snow inward to build up tall snow dunes and mountain mounds.
-* **Atmosphere & Visual Polish:** 360-degree distant alpine mountain backdrop ring, horizon distance fog, 3,000 3D volumetric falling snowflakes, glowing spell wand staff with dynamic SSS point lights, and ACES Filmic tone mapping with Bloom and Vignette post-processing.
-* **WebXR & Quest 3 Emulator Support:** Built-in dev-mode Meta Quest 3 IWER emulator for fast desktop iteration without needing a headset attached for every tweak.
+### Desktop
+| Input | Action |
+|-------|--------|
+| **W / S / ↑ / ↓** | Accelerate / Reverse |
+| **A / D / ← / →** | Steer left / right (banks into turns) |
+| **Spacebar** | Speed Boost (38 → 65 m/s / ~145 mph) |
+| **Keys 1–5** | Select active spell |
+| **Left Click / Shift / E** | Fire active spell stream |
+| **Right Click + Drag** | Orbit camera |
+
+### VR (Meta Quest 3 / WebXR)
+* Click **🥽 Enter VR** to enter 3rd-person VR mode
+* The headset camera automatically tracks behind your snowboard character
+* Free 360° head-look while the surfer speeds across the landscape
+
+---
+
+## 🔮 Spells
+
+| Key | Spell | Effect |
+|-----|-------|--------|
+| 1 | **Snow Carver** | Narrow precision wake with sleek twin side-berms |
+| 2 | **Hydro Stream** | Continuous high-pressure liquid water jet that cuts fluid trenches and saturates wet slush |
+| 3 | **Frost Spire** | Freezes tall crystalline ice columns rising out of the snow |
+| 4 | **Thermal Melt** | Melts deep smooth trenches into shiny, reflective wet slush pools |
+| 5 | **Vortex Mountain** | Pulls snow inward to build tall snow dune mountains |
+
+---
+
+## 🌟 Technical Features
+
+* **GPU-Driven Terrain & Shader Displacement:** 120m × 120m high-density mesh grid (512×512 vertices) displaced entirely in the vertex shader with analytical sastrugi dune noise and triplanar rock cliff outcrops. Zero CPU geometry rebuilds per frame.
+* **2048² Toroidal Snow Deformation Buffer:** Ping-pong `RGBA16F` half-float render targets tracking 4 physical surface state channels:
+  * **R:** Trench depression depth & impact craters
+  * **G:** Displaced mass (raised side-berms, Frost Spires, Vortex Mountains)
+  * **B:** Hard ice compression factor
+  * **A:** Water slush saturation with heat evaporation and wind drying
+* **Physical Slump & Infill Simulation:** Anisotropic slump diffusion, berm-to-trench collapse, and windward upwind infill.
+* **Advanced Snow Optics:**
+  * **GGX Specular Slush Reflections** — wetness dynamically lowers roughness
+  * **Subsurface Scattering (SSS)** — deep ice-blue backscatter through snow berms
+  * **3D Grazing-Angle Glints** — procedural micro-crystal sparkles
+* **3rd-Person Snowboard Character** with physics-based banking, velocity-scaled carving, and smooth trailing camera.
+* **WebXR 3rd-Person VR** with `<XROrigin>` tracking behind the surfer — comfortable at high speed with no motion sickness.
+* **Atmosphere:** 360° procedural mountain ring, 3,000 volumetric falling snowflakes, Bloom & Vignette post-processing, ACES Filmic tone mapping.
+
+---
+
+## 🚀 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Start local dev server (with Quest 3 emulator in dev mode)
+npm run dev
+```
+
+Open `http://localhost:5174` in Chrome.
+
+### Validation Commands
+```bash
+npm run typecheck   # TypeScript type checking
+npm run build       # Production build
+```
 
 ---
 
 ## 🌐 Deploy to GitHub Pages
 
-To publish a live demo URL for your users or Meta Quest 3 headset:
-
 ```bash
-# Option A: Automated GitHub Actions deployment (on git push)
+# Option A: Automated (GitHub Actions deploys on every push to main)
 git push origin main
 
-# Option B: One-click manual CLI deployment
+# Option B: Manual CLI deployment
 npm run deploy
 ```
 
-See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for step-by-step setup instructions.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for step-by-step setup.
 
 ---
 
@@ -48,42 +94,16 @@ See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for step-by-step setup instructio
 
 * **WebXR** & **Meta Quest 3 IWER Emulator**
 * **React 19** & **TypeScript 5.6**
-* **Three.js (0.165.0)** & **React Three Fiber (9.0)**
-* **`@react-three/xr` (6.6.30)** & **`@react-three/drei`**
+* **Three.js 0.165.0** & **React Three Fiber 9.0**
+* **`@react-three/xr` 6.6.30** & **`@react-three/drei`**
 * **`@react-three/postprocessing`**
 * **Vite 6.0**
 
 ---
 
-## 🚀 Getting Started
+## 📐 Architecture
 
-```bash
-# Install exact dependencies
-npm install
-
-# Start local development server (with Quest 3 emulator)
-npm run dev
-```
-
-Open `http://localhost:5174` in Chrome.
-
-### Controls:
-* **Left Click & Drag:** Cast Spell / Carve / Build Snow
-* **Right Click & Drag:** Orbit Camera
-* **Keys 1 to 5:** Switch Spells (1: Carver, 2: Blast, 3: Spire, 4: Melt, 5: Vortex)
-* **🥽 Enter VR Button:** Enter WebXR mode (Quest 3 / Vision Pro / Emulator)
-
-### Validation Commands:
-```bash
-npm run typecheck   # Typecheck TypeScript codebase
-npm run build       # Build production bundle
-```
-
----
-
-## 📐 Architecture Overview
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for detailed module boundary specifications, GPU state buffer pipelines, and WebXR frame budget guidelines.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for module boundaries, GPU state buffer pipelines, and WebXR frame budget guidelines.
 
 ---
 
