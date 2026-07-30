@@ -36,7 +36,10 @@ const RENDERER_CONFIG = {
   antialias: true,
   alpha: false,
   toneMapping: THREE.ACESFilmicToneMapping,
-  toneMappingExposure: 1.15,
+  // Rebalanced after the terrain shader started tone mapping correctly in
+  // v0.2. At 1.15 sunlit snow sat in the flat top of the ACES curve and every
+  // shading difference — including carved deformation — compressed to white.
+  toneMappingExposure: 0.95,
 }
 const PIXEL_RATIO_RANGE: [number, number] = [1, 1.25]
 

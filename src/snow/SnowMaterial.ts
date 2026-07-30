@@ -245,10 +245,13 @@ void main() {
   baseColor = mix(baseColor, rockTex, rockBlend);
 
   // ─── FINAL LIGHTING & AMBIENT SHADING ───
-  vec3 ambientLight = uSkyColor * (0.42 + N.y * 0.28) * cavityAo;
-  vec3 directLight = uSunColor * wrappedDiffuse * 1.05;
+  vec3 ambientLight = uSkyColor * (0.28 + N.y * 0.20);
+  vec3 directLight = uSunColor * wrappedDiffuse * 0.85;
 
-  vec3 finalColor = baseColor * (ambientLight + directLight) + sssLighting;
+  // Cavity occlusion attenuates ALL incoming light, not just the sky ambient.
+  // Occluding only the ambient term leaves carved trenches indistinguishable
+  // from flat snow whenever the sun is strong, which is most of the time here.
+  vec3 finalColor = baseColor * (ambientLight + directLight) * cavityAo + sssLighting;
   finalColor += vec3(specTerm);
   finalColor += uSunColor * grazingGlint;
 
