@@ -78,15 +78,18 @@ export function XRStatusPanel({
 
   useFrame(() => {
     if (spriteRef.current === null || riderPositionRef.current === null) return
+    // Kept low and well off to the side. At +2.5 up and +1.45 across this
+    // billboard sat directly in the forward sightline, and depthTest is off so
+    // it drew over the snowfield rather than being occluded by it.
     spriteRef.current.position.copy(riderPositionRef.current)
-    spriteRef.current.position.x += 1.45
-    spriteRef.current.position.y += 2.5
+    spriteRef.current.position.x += 2.6
+    spriteRef.current.position.y += 0.9
   })
 
   if (session === undefined) return null
 
   return (
-    <sprite ref={spriteRef} scale={[2.7, 0.68, 1]} renderOrder={9000}>
+    <sprite ref={spriteRef} scale={[2.0, 0.5, 1]} renderOrder={9000}>
       <spriteMaterial
         map={texture}
         transparent
