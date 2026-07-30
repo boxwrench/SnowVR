@@ -24,6 +24,7 @@ import {
   stepLoopTransition,
 } from './loopTransition'
 import { getXrChaseYaw } from './chaseCamera'
+import { createContactShadowMaterial } from './contactShadowMaterial'
 import { resolveTerrainAim } from './terrainAim'
 import {
   applySlopeGravity,
@@ -108,6 +109,9 @@ export function SnowSurferController({
 
   const characterGroupRef = useRef<THREE.Group>(null)
   const characterMotionRef = useRef<CharacterMotion>({ bankRoll: 0, speed: 0 })
+  const contactShadowMaterial = useMemo(() => createContactShadowMaterial(), [])
+
+  useEffect(() => () => contactShadowMaterial.dispose(), [contactShadowMaterial])
   const boardGroupRef = useRef<THREE.Group>(null)
   const xrOriginRef = useRef<THREE.Group>(null)
   const aimReticleRef = useRef<THREE.Group>(null)
@@ -455,6 +459,19 @@ export function SnowSurferController({
       <group ref={characterGroupRef} position={[0, 0, 0]}>
         {/* Dynamic Carving Light under the board */}
         <pointLight color={activeSpell.color} intensity={3.0} distance={6} decay={2} position={[0, 0.4, 0]} />
+
+        {/*
+          Contact shadow. Sits in the character group rather than the board
+          group so it stays flat on the snow instead of banking into turns.
+        */}
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.04, 0]}
+          material={contactShadowMaterial}
+          renderOrder={1}
+        >
+          <planeGeometry args={[2.0, 3.4]} />
+        </mesh>
 
         <group ref={boardGroupRef}>
           {/* 1980's Ski Penguin 3D Player Character */}
