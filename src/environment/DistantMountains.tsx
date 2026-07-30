@@ -169,7 +169,14 @@ function createLayerMaterial(layer: BackdropLayer): THREE.ShaderMaterial {
     // Not fogged: the per-layer gradient IS the aerial perspective.
     fog: false,
     side: THREE.BackSide,
-    depthWrite: false,
+    // Must write depth. drei's <Sky> is a three-stdlib Sky mesh at the default
+    // renderOrder of 0, so it draws after these negatively-ordered rings, and
+    // its shader forces gl_Position.z = gl_Position.w — depth exactly 1.0. With
+    // three's LessEqualDepth that passes wherever the depth buffer is still at
+    // its cleared 1.0, so a backdrop that writes no depth gets painted over by
+    // the sky. Writing depth at 120/150/180 m occludes the sky correctly and
+    // still lets the near ring overwrite the far one.
+    depthWrite: true,
   })
 }
 
