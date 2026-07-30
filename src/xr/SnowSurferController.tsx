@@ -5,7 +5,10 @@ import * as THREE from 'three'
 import { AVAILABLE_SPELLS, type SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
 import type { RideableDeformationField } from '../snow/RideableDeformationField'
-import { SkiPenguinCharacter } from '../character/SkiPenguinCharacter'
+import {
+  SkiPenguinCharacter,
+  type CharacterMotion,
+} from '../character/SkiPenguinCharacter'
 import { TERRAIN_HALF_SIZE } from '../snow/terrainMath'
 import {
   createMovementKeyState,
@@ -104,6 +107,7 @@ export function SnowSurferController({
   )
 
   const characterGroupRef = useRef<THREE.Group>(null)
+  const characterMotionRef = useRef<CharacterMotion>({ bankRoll: 0, speed: 0 })
   const boardGroupRef = useRef<THREE.Group>(null)
   const xrOriginRef = useRef<THREE.Group>(null)
   const aimReticleRef = useRef<THREE.Group>(null)
@@ -264,6 +268,8 @@ export function SnowSurferController({
     )
 
     const speed = velocity.current.length()
+    characterMotionRef.current.bankRoll = bankRoll.current
+    characterMotionRef.current.speed = speed
     const carvingIntensity = speed > 0.5
       ? THREE.MathUtils.clamp((speed / 34) * (0.35 + Math.abs(bankRoll.current) * 1.75), 0, 1)
       : 0
@@ -454,8 +460,7 @@ export function SnowSurferController({
           {/* 1980's Ski Penguin 3D Player Character */}
           <SkiPenguinCharacter
             spellColor={activeSpell.color}
-            bankRoll={bankRoll.current}
-            speed={lastTelemetry.current?.speed ?? 0}
+            motionRef={characterMotionRef}
           />
         </group>
       </group>
