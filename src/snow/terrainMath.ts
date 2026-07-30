@@ -1,17 +1,36 @@
+
+
+/**
+ * Shared terrain profile math for displacement rendering, server physics, and collision.
+ */
 export const TERRAIN_SIZE = 120
+export const TERRAIN_HALF_SIZE = TERRAIN_SIZE / 2
 export const TERRAIN_SEGMENTS = 256
 export const TERRAIN_GRID_SIZE = TERRAIN_SEGMENTS + 1
-export const TERRAIN_HALF_SIZE = TERRAIN_SIZE / 2
 
-const fract = (value: number) => value - Math.floor(value)
-const smooth = (value: number) => value * value * (3 - 2 * value)
-const mix = (a: number, b: number, amount: number) => a + (b - a) * amount
+const BASE_SLOPE = 0.12
+const MAIN_RIDGE_HEIGHT = 14
+const HALFPIPE_DEPTH = 3.5
+const HALFPIPE_WIDTH = 18
 
-function hash3(x: number, y: number, z: number): readonly [number, number, number] {
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
+function mix(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+function hash3(ix: number, iy: number, iz: number): [number, number, number] {
+  let h = (ix * 374761393 + iy * 668265263 + iz * 2147483647) ^ 0x5bf03635
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  h = h ^ (h >>> 16)
+  const angle1 = ((h & 0xffff) / 65535) * Math.PI * 2
+  const angle2 = (((h >>> 16) & 0xffff) / 65535) * Math.PI * 2
   return [
-    fract(Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453123) * 2 - 1,
-    fract(Math.sin(x * 269.5 + y * 183.3 + z * 246.1) * 43758.5453123) * 2 - 1,
-    fract(Math.sin(x * 113.5 + y * 271.9 + z * 124.6) * 43758.5453123) * 2 - 1,
+    Math.cos(angle1) * Math.sin(angle2),
+    Math.cos(angle2),
+    Math.sin(angle1) * Math.sin(angle2),
   ]
 }
 
@@ -27,7 +46,7 @@ function gradientDot(
   return gradient[0] * fx + gradient[1] * fy + gradient[2] * fz
 }
 
-function gradientNoise3D(x: number, y: number, z: number): number {
+export function gradientNoise3D(x: number, y: number, z: number): number {
   const ix = Math.floor(x)
   const iy = Math.floor(y)
   const iz = Math.floor(z)
@@ -44,39 +63,40 @@ function gradientNoise3D(x: number, y: number, z: number): number {
   const near = mix(
     mix(sample(0, 0, 0), sample(1, 0, 0), ux),
     mix(sample(0, 1, 0), sample(1, 1, 0), ux),
-    uy,
+    uy
   )
   const far = mix(
     mix(sample(0, 0, 1), sample(1, 0, 1), ux),
     mix(sample(0, 1, 1), sample(1, 1, 1), ux),
-    uy,
+    uy
   )
   return mix(near, far, uz)
 }
 
-/**
- * Intended procedural profile sampled once into the shared base heightfield.
- * Rideable spell deformation is layered on by RideableDeformationField.
- */
 export function evaluateTerrainProfile(x: number, z: number): number {
-  const slope = -z * 0.12
-  const windX = x * 0.4 + z * 0.12
-  const windZ = z * 0.4 - x * 0.12
-  const duneRidges = Math.sin(windX * 0.12) * 1.8
-    + gradientNoise3D(windX * 0.05, windZ * 0.05, 0) * 2.5
-  const sastrugi = gradientNoise3D(windX * 0.35, windZ * 0.35, 1.2) * 0.6
-  return slope + duneRidges + sastrugi
+  const slopeHeight = -z * BASE_SLOPE
+  const ridgeNoise = gradientNoise3D(x * 0.02, 0.5, z * 0.02)
+  const microNoise = gradientNoise3D(x * 0.08, 1.2, z * 0.08) * 0.7
+  const ridge = Math.pow(Math.abs(ridgeNoise), 1.4) * MAIN_RIDGE_HEIGHT
+
+  const halfpipeDistance = Math.abs(x)
+  const halfpipeShape = smooth(Math.max(0, 1 - halfpipeDistance / HALFPIPE_WIDTH))
+  const halfpipeTrench = -Math.cos(halfpipeShape * Math.PI * 0.5) * HALFPIPE_DEPTH
+
+  return slopeHeight + ridge + microNoise + halfpipeTrench
+}
+
+function heightAt(column: number, row: number): number {
+  const x = (column / TERRAIN_SEGMENTS - 0.5) * TERRAIN_SIZE
+  const z = (0.5 - row / TERRAIN_SEGMENTS) * TERRAIN_SIZE
+  return evaluateTerrainProfile(x, z)
 }
 
 export function createTerrainHeightData(): Float32Array<ArrayBuffer> {
   const data = new Float32Array(TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE)
   for (let row = 0; row < TERRAIN_GRID_SIZE; row++) {
-    const v = row / TERRAIN_SEGMENTS
-    const z = (0.5 - v) * TERRAIN_SIZE
     for (let column = 0; column < TERRAIN_GRID_SIZE; column++) {
-      const u = column / TERRAIN_SEGMENTS
-      const x = (u - 0.5) * TERRAIN_SIZE
-      data[row * TERRAIN_GRID_SIZE + column] = evaluateTerrainProfile(x, z)
+      data[row * TERRAIN_GRID_SIZE + column] = heightAt(column, row)
     }
   }
   return data
@@ -84,28 +104,22 @@ export function createTerrainHeightData(): Float32Array<ArrayBuffer> {
 
 export const TERRAIN_HEIGHT_DATA = createTerrainHeightData()
 
-function heightAt(column: number, row: number): number {
-  return TERRAIN_HEIGHT_DATA[row * TERRAIN_GRID_SIZE + column]
-}
-
-/**
- * Samples the same two triangles rendered by Three.js PlaneGeometry.
- * Texture V runs opposite world Z, matching the rotated terrain plane.
- */
 export function getTerrainHeight(x: number, z: number): number {
-  const u = Math.max(0, Math.min(1, x / TERRAIN_SIZE + 0.5))
-  const v = Math.max(0, Math.min(1, 0.5 - z / TERRAIN_SIZE))
-  const gridX = u * TERRAIN_SEGMENTS
-  const gridV = v * TERRAIN_SEGMENTS
-  const column = Math.min(Math.floor(gridX), TERRAIN_SEGMENTS - 1)
-  const row = Math.min(Math.floor(gridV), TERRAIN_SEGMENTS - 1)
-  const fractionX = gridX - column
-  const fractionV = gridV - row
+  const normalizedX = (x / TERRAIN_SIZE + 0.5) * TERRAIN_SEGMENTS
+  const normalizedV = (0.5 - z / TERRAIN_SIZE) * TERRAIN_SEGMENTS
 
-  const lowerLeft = heightAt(column, row)
-  const lowerRight = heightAt(column + 1, row)
-  const upperLeft = heightAt(column, row + 1)
-  const upperRight = heightAt(column + 1, row + 1)
+  const column0 = Math.max(0, Math.min(TERRAIN_SEGMENTS - 1, Math.floor(normalizedX)))
+  const row0 = Math.max(0, Math.min(TERRAIN_SEGMENTS - 1, Math.floor(normalizedV)))
+  const column1 = column0 + 1
+  const row1 = row0 + 1
+
+  const fractionX = Math.max(0, Math.min(1, normalizedX - column0))
+  const fractionV = Math.max(0, Math.min(1, normalizedV - row0))
+
+  const lowerLeft = TERRAIN_HEIGHT_DATA[row0 * TERRAIN_GRID_SIZE + column0]
+  const lowerRight = TERRAIN_HEIGHT_DATA[row0 * TERRAIN_GRID_SIZE + column1]
+  const upperLeft = TERRAIN_HEIGHT_DATA[row1 * TERRAIN_GRID_SIZE + column0]
+  const upperRight = TERRAIN_HEIGHT_DATA[row1 * TERRAIN_GRID_SIZE + column1]
 
   if (fractionV >= fractionX) {
     return lowerLeft * (1 - fractionV)
@@ -131,3 +145,39 @@ export function getTerrainNormal(
   const length = Math.sqrt(dx * dx + 1 + dz * dz)
   return { nx: -dx / length, ny: 1 / length, nz: -dz / length }
 }
+
+const clampIndex = (value: number) =>
+  Math.max(0, Math.min(TERRAIN_GRID_SIZE - 1, value))
+
+/**
+ * Base-height central differences per grid vertex, as RGBA float texels:
+ * R = height(x-1) - height(x+1), G = height(z+1) - height(z-1).
+ *
+ * The vertex shader adds these to the equivalent deformation differences. Because
+ * differences add linearly, the resulting normal is identical to sampling all
+ * four base neighbours directly, at four fewer texture fetches per vertex.
+ *
+ * Edge clamping mirrors the shader's `clamp(uv, 0.0, 1.0)` exactly.
+ */
+export function createTerrainGradientData(): Float32Array<ArrayBuffer> {
+  const data = new Float32Array(TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE * 4)
+
+  for (let row = 0; row < TERRAIN_GRID_SIZE; row++) {
+    for (let column = 0; column < TERRAIN_GRID_SIZE; column++) {
+      const left = heightAt(clampIndex(column - 1), row)
+      const right = heightAt(clampIndex(column + 1), row)
+      const down = heightAt(column, clampIndex(row + 1))
+      const up = heightAt(column, clampIndex(row - 1))
+
+      const index = (row * TERRAIN_GRID_SIZE + column) * 4
+      data[index] = left - right
+      data[index + 1] = down - up
+      data[index + 2] = 0
+      data[index + 3] = 0
+    }
+  }
+
+  return data
+}
+
+export const TERRAIN_GRADIENT_DATA = createTerrainGradientData()

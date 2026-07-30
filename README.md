@@ -1,16 +1,10 @@
+![SnowVR Banner](docs/snowvr-banner.png)
+
 # SnowVR ❄️🏂
 
 **SnowVR** is an AI-assisted WebXR procedural snow rendering and downhill interaction sandbox built as a hands-on learning tool. It explores real-time GPU-driven snow deformation, WebXR performance optimization, and controller-first VR interactions targeting 72 FPS on Meta Quest 3.
 
 **🌐 Live Demo:** [`https://boxwrench.github.io/SnowVR/`](https://boxwrench.github.io/SnowVR/)
-
----
-
-## 💡 Inspiration & Acknowledgments
-
-SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://github.com/Noniv) and their project [**`Noniv/snowflow_demo`**](https://github.com/Noniv/snowflow_demo) (released under the [MIT License](https://github.com/Noniv/snowflow_demo/blob/main/LICENSE)). 
-
-`snowflow_demo` demonstrated state-of-the-art procedural WebGPU snow rendering, multi-channel toroidal FBO deformation, anisotropic slump diffusion, and elemental landscape manipulation without pre-authored texture or mesh assets. SnowVR adapts these concepts into a 3rd-person WebXR VR experience tailored for Meta Quest 3 using Three.js and React Three Fiber.
 
 ---
 
@@ -61,7 +55,9 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 - **3rd-Person VR Chase Rig:** Trailing horizon-stable camera tracking (`<XROrigin>`) following rider position and heading smoothly while preserving free 360° VR head-look.
 - **Adaptive GPGPU Particles:** GPU-driven ping-pong particle system (`GPGPUParticleSystem.ts`) budgeted to 4,096 active particles with automatic idle pause during normal riding.
 - **Zero-Asset Web Audio:** Procedural Web Audio synthesis (`SnowAudioController.tsx`) generating wind hiss and board scrape audio based on velocity.
+- **Unified Atmosphere:** Sky, fog, sun, and backdrop colours resolve from a single `atmosphereConfig.ts` module. The snow shader runs through the standard Three.js tone-mapping, colour-space, and fog chunks so the terrain matches every other material in the scene.
 - **Instanced Slalom Gates:** Single-draw-call instanced slalom poles (`SlalomPoles.tsx`) every 18m for immediate visual scale and speed anchors.
+- **Camera-Following Snowfall:** 1,200 points wrapped toroidally around the viewer, so snowfall density is constant across the whole run.
 - **Performance Monitoring:** Optional real-time FPS, frame time (ms), and native FFR diagnostics (`DevOverlay.tsx`). Enable the head-following headset panel only when profiling with `?dev=1`.
 
 ---
@@ -94,6 +90,14 @@ Physical Meta Quest setup and the native-device test gates are documented in
 * **Three.js 0.165.0** & **React Three Fiber 9.0**
 * **`@react-three/xr` 6.6.30** & **`@react-three/drei`**
 * **Vite 6.0**
+
+---
+
+## 💡 Inspiration & Acknowledgments
+
+SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://github.com/Noniv) and their project [**`Noniv/snowflow_demo`**](https://github.com/Noniv/snowflow_demo) (released under the [MIT License](https://github.com/Noniv/snowflow_demo/blob/main/LICENSE)). 
+
+`snowflow_demo` demonstrated state-of-the-art procedural WebGPU snow rendering, multi-channel toroidal FBO deformation, anisotropic slump diffusion, and elemental landscape manipulation without pre-authored texture or mesh assets. SnowVR adapts these concepts into a 3rd-person WebXR VR experience tailored for Meta Quest 3 using Three.js and React Three Fiber.
 
 ---
 

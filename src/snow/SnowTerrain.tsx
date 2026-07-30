@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { SnowDeformationBuffer } from './SnowDeformationBuffer'
 import { createSnowMaterial } from './SnowMaterial'
 import {
+  TERRAIN_GRADIENT_DATA,
   TERRAIN_GRID_SIZE,
   TERRAIN_HEIGHT_DATA,
   TERRAIN_SEGMENTS,
@@ -56,18 +57,43 @@ export function SnowTerrain({
     texture.needsUpdate = true
     return texture
   }, [])
+
+  const terrainGradientMap = useMemo(() => {
+    const texture = new THREE.DataTexture(
+      TERRAIN_GRADIENT_DATA,
+      TERRAIN_GRID_SIZE,
+      TERRAIN_GRID_SIZE,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    )
+    texture.minFilter = THREE.NearestFilter
+    texture.magFilter = THREE.NearestFilter
+    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
+    texture.generateMipmaps = false
+    texture.needsUpdate = true
+    return texture
+  }, [])
+
   const snowMaterial = useMemo(
-    () => createSnowMaterial(terrainHeightMap, TERRAIN_GRID_SIZE, TERRAIN_SIZE),
-    [terrainHeightMap],
+    () =>
+      createSnowMaterial(
+        terrainHeightMap,
+        terrainGradientMap,
+        TERRAIN_GRID_SIZE,
+        TERRAIN_SIZE,
+      ),
+    [terrainGradientMap, terrainHeightMap],
   )
 
   useEffect(() => {
     return () => {
       deformationBuffer.dispose()
       terrainHeightMap.dispose()
+      terrainGradientMap.dispose()
       snowMaterial.dispose()
     }
-  }, [deformationBuffer, snowMaterial, terrainHeightMap])
+  }, [deformationBuffer, snowMaterial, terrainGradientMap, terrainHeightMap])
 
   useFrame((_, delta) => {
     const brush = brushRef.current ?? {

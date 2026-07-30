@@ -1,31 +1,21 @@
 # SnowVR Architecture
 
-SnowVR is a third-person WebXR downhill sandbox targeting Meta Quest 3 at 72 Hz. The runtime is split into input/locomotion, shared terrain and deformation, GPU particle effects, environment rendering, audio, and UI diagnostics.
+`SnowVR` is a WebXR downhill snowboard experience built with React Three Fiber, Three.js, `@react-three/xr`, and Vite.
 
-## Runtime data flow
+## Core design principles
 
-```mermaid
-flowchart TD
-  Input[Desktop and Quest input] --> Rider[SnowSurferController]
-  Rider --> Brush[Mutable brush state]
-  Rider --> Telemetry[Speed / carving / casting telemetry]
-  Profile[Deterministic terrain profile] --> Heightfield[257 x 257 Float32 heightfield]
-  Heightfield --> CPU[CPU triangle sampler]
-  Heightfield --> GPU[Vertex-shader height texture]
-  CPU --> Rider
-  CPU --> Aim[Terrain-aware controller aim]
-  Aim --> Reticle[Reticle and particle grounding]
-  Brush --> Deform[1024 x 1024 RGBA16F deformation ping-pong]
-  Brush --> Collision[257 x 257 CPU rideable deformation mirror]
-  Collision --> Rider
-  Collision --> Aim
-  Deform --> GPU
-  Telemetry --> Audio[Wind and carving audio]
-  Telemetry --> HUD[Desktop and XR status panels]
-  RenderLoop[R3F / XR render loop] --> Diagnostics[Shared desktop and headset diagnostics]
-```
+1. **Standalone-first:** Target Meta Quest 3 at 72 Hz without desktop tethering or cloud rendering.
+2. **Dynamic snow manipulation:** The player's actions alter the snow terrain, creating trenches, ice trails, mounds, and slush.
+3. **Immersive 3rd-person controls:** Control a snowboarder down an arctic slope with independent spell aiming and a horizon-stable chase camera.
+4. **Endless downhill loop:** Seamlessly rebase coordinates so the run can continue indefinitely without precision loss or visual seams.
 
-## WebXR and interaction
+## Entry points and state flow
+
+- `src/main.tsx` mounts the React tree.
+- `src/App.tsx` owns high-level UI, spell selection, dev controls, and WebXR canvas setup.
+- `src/xr/store.ts` configures the `@react-three/xr` session store, enabling 72 Hz mode and fixed foveation when supported.
+
+## Scene structure and WebXR integration
 
 - `src/xr/store.ts` defines a deliberately small immersive-VR feature set. It disables unsolicited session offers and unused AR features, requests layers, sets fixed foveation to `0.5`, and selects 72 Hz when the runtime exposes it.
 - Native WebXR always takes priority. The IWER Quest emulator is opt-in during development with `?emulate=1`; it is never force-installed over a connected headset.
@@ -48,6 +38,16 @@ flowchart TD
 
 - Spell VFX use a 64 x 64 GPGPU state texture: 4,096 particles with idle suspension. Spawn probability is converted from the 72 Hz reference probability to the current frame interval, and per-spell intensity reduces density, size, and opacity where particles would obscure the authored surface.
 - Falling snow uses 1,200 CPU-updated points. Slalom poles are instanced.
+- The snow terrain material is a non-raw `ShaderMaterial` that includes `tonemapping_fragment`, `colorspace_fragment`, and `fog_fragment` in the same order as Three.js built-in materials. Without those includes the terrain bypasses ACESFilmic tone mapping and sRGB encoding while every other object receives both.
+- Sky, fog, sun, and backdrop values come from `src/environment/atmosphereConfig.ts`. The terrain fogs into `HORIZON_COLOR` and the mountain backdrop's base is the same colour, so the two meet without a seam.
+- The mountain backdrop is three unfogged concentric rings at 120 m, 150 m, and 180 m, each baking its own aerial perspective into a vertical gradient. Linear fog saturates at 92 m, so any world-space ring would be a flat band; three radii also parallax against each other, which is what makes a backdrop read as depth rather than as a painted wall.
+- Falling snow wraps toroidally around the camera on all three axes, so the particle budget follows the rider instead of staying at the world origin.
+- The rider's grounding cue is a multiply-blended contact shadow quad parented to the terrain-aligned character group. Shadow maps are outside budget.
+- The snow shader's quality tiers are screen-centre LOD rings, not foveation. `uLodCenter` is static; native fixed foveated rendering is a separate mechanism configured by `gl.xr.setFoveation(0.5)` in `src/xr/store.ts`.
+- Base terrain normals are precomputed into an RGB texture, so the vertex shader samples the height field for deformation correction only. This halves its texture fetches without changing tessellation.
+- The deformation simulation pass suspends when no brush is active and residual decay is below a visible threshold, mirroring the particle system's idle suspension. It resumes on the first brush stamp.
+- The render loop allocates no objects per frame. Scratch vectors, quaternions, and planes live in refs or module scope.
+- WebGL context loss is recovered rather than fatal: the canvas listens for `webglcontextlost` / `webglcontextrestored`, which the Quest browser raises on headset sleep and resume.
 - Audio consumes sampled rider speed and carving intensity rather than UI input state.
 - The always-available XR status panel shows the active spell, rider speed, and CAST/READY state near the rider.
 - `?dev=1` adds a head-following XR diagnostics panel. It and the DOM panel share render-loop measurements: FPS, average and p95 frame time, fixed foveation, XR refresh rate, and projection-layer dimensions.
@@ -63,5 +63,9 @@ flowchart TD
 | Spell particles | 4,096 |
 | Falling snow points | 1,200 |
 | Quest target | 72 Hz, foveation 0.5 |
+| Fog range | 30 m to 92 m, shared by every fogged material |
+| Mountain backdrop | 3 rings, 3 draw calls, unfogged |
+| Rider character | Draw calls recorded in the v0.2 benchmark; largest single addition in this release |
+| Release gate | p95 frame time < 13.5 ms in all three benchmark scenes |
 
 Run `npm run validate` before deployment. It performs the TypeScript check, unit tests, and the production Vite build.

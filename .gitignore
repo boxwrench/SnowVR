@@ -13,3 +13,6 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# local review/verification scratch
+.review-tmp/

@@ -1,10 +1,14 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useXR, useXRInputSourceState, XROrigin } from '@react-three/xr'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { AVAILABLE_SPELLS, type SpellEffect } from '../experiments/SpellManager'
 import type { BrushState } from '../snow/SnowTerrain'
 import type { RideableDeformationField } from '../snow/RideableDeformationField'
+import {
+  SkiPenguinCharacter,
+  type CharacterMotion,
+} from '../character/SkiPenguinCharacter'
 import { TERRAIN_HALF_SIZE } from '../snow/terrainMath'
 import {
   createMovementKeyState,
@@ -20,6 +24,7 @@ import {
   stepLoopTransition,
 } from './loopTransition'
 import { getXrChaseYaw } from './chaseCamera'
+import { createContactShadowMaterial } from './contactShadowMaterial'
 import { resolveTerrainAim } from './terrainAim'
 import {
   applySlopeGravity,
@@ -27,6 +32,7 @@ import {
   getSurfaceFriction,
   getSurfaceMaxSpeed,
 } from './surfacePhysics'
+import { orientToSurface } from './surfaceOrientation'
 
 interface SnowSurferControllerProps {
   readonly activeSpell: SpellEffect
@@ -88,7 +94,24 @@ export function SnowSurferController({
   // Desktop Key States
   const keys = useRef(createMovementKeyState())
 
+  // Reused every frame. Allocating these inside useFrame produced roughly 850
+  // objects per second, and the resulting GC pauses are felt as judder in VR.
+  const scratch = useMemo(
+    () => ({
+      moveDir: new THREE.Vector3(),
+      groundPlane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0),
+      planeHit: new THREE.Vector3(),
+      camOffset: new THREE.Vector3(),
+      targetCamPos: new THREE.Vector3(),
+    }),
+    [],
+  )
+
   const characterGroupRef = useRef<THREE.Group>(null)
+  const characterMotionRef = useRef<CharacterMotion>({ bankRoll: 0, speed: 0 })
+  const contactShadowMaterial = useMemo(() => createContactShadowMaterial(), [])
+
+  useEffect(() => () => contactShadowMaterial.dispose(), [contactShadowMaterial])
   const boardGroupRef = useRef<THREE.Group>(null)
   const xrOriginRef = useRef<THREE.Group>(null)
   const aimReticleRef = useRef<THREE.Group>(null)
@@ -183,10 +206,10 @@ export function SnowSurferController({
     const bankDamp = 1.0 - Math.exp(-12.0 * dt)
     bankRoll.current += (targetBank - bankRoll.current) * bankDamp
 
-    const moveDir = new THREE.Vector3(
+    const moveDir = scratch.moveDir.set(
       Math.sin(heading.current),
       0,
-      Math.cos(heading.current)
+      Math.cos(heading.current),
     )
 
     if (forwardInput !== 0) {
@@ -249,6 +272,8 @@ export function SnowSurferController({
     )
 
     const speed = velocity.current.length()
+    characterMotionRef.current.bankRoll = bankRoll.current
+    characterMotionRef.current.speed = speed
     const carvingIntensity = speed > 0.5
       ? THREE.MathUtils.clamp((speed / 34) * (0.35 + Math.abs(bankRoll.current) * 1.75), 0, 1)
       : 0
@@ -266,15 +291,11 @@ export function SnowSurferController({
     // ─── 3. CHARACTER MESH PLACEMENT & LEANING ───
     if (characterGroupRef.current) {
       characterGroupRef.current.position.copy(position.current)
-
-      const up = terrainNormalVec.clone()
-      const quat = new THREE.Quaternion()
-      quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up)
-
-      const yawQuat = new THREE.Quaternion()
-      yawQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading.current)
-
-      characterGroupRef.current.quaternion.copy(yawQuat.multiply(quat))
+      orientToSurface(
+        heading.current,
+        terrainNormalVec,
+        characterGroupRef.current.quaternion,
+      )
     }
 
     if (boardGroupRef.current) {
@@ -295,9 +316,10 @@ export function SnowSurferController({
       )
     } else {
       raycaster.setFromCamera(pointer, camera)
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -position.current.y)
-      const hit = new THREE.Vector3()
-      if (raycaster.ray.intersectPlane(plane, hit)) {
+      // Normal is already world up; only the plane's distance changes per frame.
+      scratch.groundPlane.constant = -position.current.y
+      const hit = scratch.planeHit
+      if (raycaster.ray.intersectPlane(scratch.groundPlane, hit)) {
         aimTargetPos.current.copy(hit)
         aimTargetPos.current.y = deformationField.getHeight(hit.x, hit.z) + 0.05
       } else {
@@ -359,12 +381,12 @@ export function SnowSurferController({
     // ─── 6. HORIZON-STABLE CHASE CAMERA FOLLOW ───
     const camDist = 6.5 + speed * 0.06
     const camHeight = 3.2 + speed * 0.02
-    const camOffset = new THREE.Vector3(
+    const camOffset = scratch.camOffset.set(
       -Math.sin(heading.current) * camDist,
       camHeight,
-      -Math.cos(heading.current) * camDist
+      -Math.cos(heading.current) * camDist,
     )
-    const targetCamPos = position.current.clone().add(camOffset)
+    const targetCamPos = scratch.targetCamPos.copy(position.current).add(camOffset)
 
     const camDamp = 1.0 - Math.exp(-8.0 * dt)
 
@@ -438,30 +460,25 @@ export function SnowSurferController({
         {/* Dynamic Carving Light under the board */}
         <pointLight color={activeSpell.color} intensity={3.0} distance={6} decay={2} position={[0, 0.4, 0]} />
 
+        {/*
+          Contact shadow. Sits in the character group rather than the board
+          group so it stays flat on the snow instead of banking into turns.
+        */}
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.04, 0]}
+          material={contactShadowMaterial}
+          renderOrder={1}
+        >
+          <planeGeometry args={[2.0, 3.4]} />
+        </mesh>
+
         <group ref={boardGroupRef}>
-          {/* Snow Craft Board */}
-          <mesh position={[0, 0.1, 0]}>
-            <boxGeometry args={[0.5, 0.08, 2.4]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.15} metalness={0.85} />
-          </mesh>
-
-          {/* Board Energy Deck Stripe */}
-          <mesh position={[0, 0.15, 0]}>
-            <boxGeometry args={[0.32, 0.02, 2.0]} />
-            <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.5} />
-          </mesh>
-
-          {/* Third-Person Surfer Character Body */}
-          <mesh position={[0, 1.1, 0]}>
-            <capsuleGeometry args={[0.3, 0.8, 8, 16]} />
-            <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.4} />
-          </mesh>
-
-          {/* Character Goggles / Headpiece */}
-          <mesh position={[0, 1.5, 0.2]}>
-            <sphereGeometry args={[0.22, 16, 16]} />
-            <meshStandardMaterial color={activeSpell.color} emissive={activeSpell.color} emissiveIntensity={2.0} />
-          </mesh>
+          {/* 1980's Ski Penguin 3D Player Character */}
+          <SkiPenguinCharacter
+            spellColor={activeSpell.color}
+            motionRef={characterMotionRef}
+          />
         </group>
       </group>
     </>

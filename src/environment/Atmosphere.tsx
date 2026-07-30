@@ -1,11 +1,18 @@
 import { Sky } from '@react-three/drei'
+import {
+  FOG_FAR,
+  FOG_NEAR,
+  HORIZON_COLOR,
+  SUN_COLOR,
+  SUN_POSITION,
+} from './atmosphereConfig'
 
 export function Atmosphere() {
   return (
     <>
       <Sky
         distance={450000}
-        sunPosition={[30, 50, 40]}
+        sunPosition={[...SUN_POSITION]}
         inclination={0.49}
         azimuth={0.25}
         mieCoefficient={0.005}
@@ -18,13 +25,13 @@ export function Atmosphere() {
       <ambientLight intensity={0.7} color="#b8d8ea" />
 
       <directionalLight
-        position={[30, 50, 40]}
+        position={[...SUN_POSITION]}
         intensity={2.2}
-        color="#fff0d6"
+        color={SUN_COLOR}
       />
 
-      {/* Distance fog matching terrain bounds */}
-      <fog attach="fog" args={['#244b66', 50, 140]} />
+      {/* Shared linear fog. Every fogged material blends into HORIZON_COLOR. */}
+      <fog attach="fog" args={[HORIZON_COLOR, FOG_NEAR, FOG_FAR]} />
     </>
   )
 }

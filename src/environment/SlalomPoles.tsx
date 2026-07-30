@@ -1,60 +1,66 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getTerrainHeight } from '../snow/terrainMath'
+import { createPoleLayout } from './poleLayout'
+
+const POLE_HEIGHT = 2.2
+const POLE_RADIUS = 0.08
+const RED = '#ef4444'
+const BLUE = '#3b82f6'
 
 /**
- * Instanced Slalom Gates / Scale Anchor Poles along the downhill run.
- * Provides visual scale anchors every 20 meters at 1 draw call.
+ * Instanced slalom gates. Provides the run's only visual scale and speed
+ * anchor at one draw call.
+ *
+ * Instance matrices are written in a layout effect, not a memo: THREE
+ * initialises instanceMatrix to zeros rather than identity, and a memo runs
+ * before React attaches the ref, which would leave every pole degenerate at
+ * the origin.
  */
 export function SlalomPoles() {
   const meshRef = useRef<THREE.InstancedMesh>(null)
-
-  const poles = useMemo(() => {
-    const items: Array<{ x: number; z: number; isRed: boolean }> = []
-    // Place pairs of slalom poles down the downhill run
-    for (let z = -40; z <= 40; z += 18) {
-      const offset = Math.sin(z * 0.15) * 6
-      items.push({ x: offset - 3.5, z, isRed: true })
-      items.push({ x: offset + 3.5, z, isRed: false })
-    }
-    return items
-  }, [])
+  const poles = useMemo(() => createPoleLayout(), [])
 
   const [geometry, material] = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(0.08, 0.08, 2.2, 8)
+    const geo = new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 8)
     const mat = new THREE.MeshStandardMaterial({
-      color: '#ef4444',
+      color: '#ffffff',
       roughness: 0.3,
       metalness: 0.2,
     })
-    return [geo, mat]
+    return [geo, mat] as const
   }, [])
 
-  useMemo(() => {
-    if (!meshRef.current) return
+  useLayoutEffect(() => {
+    return () => {
+      geometry.dispose()
+      material.dispose()
+    }
+  }, [geometry, material])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+
     const dummy = new THREE.Object3D()
     const color = new THREE.Color()
 
-    poles.forEach((p, i) => {
-      const terrainY = getTerrainHeight(p.x, p.z)
-      dummy.position.set(p.x, terrainY + 1.1, p.z)
+    poles.forEach((pole, index) => {
+      dummy.position.set(
+        pole.x,
+        getTerrainHeight(pole.x, pole.z) + POLE_HEIGHT / 2,
+        pole.z,
+      )
       dummy.updateMatrix()
-      meshRef.current?.setMatrixAt(i, dummy.matrix)
-
-      color.set(p.isRed ? '#ef4444' : '#3b82f6')
-      meshRef.current?.setColorAt(i, color)
+      mesh.setMatrixAt(index, dummy.matrix)
+      mesh.setColorAt(index, color.set(pole.isRed ? RED : BLUE))
     })
 
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true
-    }
-    meshRef.current.instanceMatrix.needsUpdate = true
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    // Instances span the whole run, so the geometry-derived bounds are wrong.
+    mesh.computeBoundingSphere()
   }, [poles])
 
-  return (
-    <instancedMesh
-      ref={meshRef}
-      args={[geometry, material, poles.length]}
-    />
-  )
+  return <instancedMesh ref={meshRef} args={[geometry, material, poles.length]} />
 }
