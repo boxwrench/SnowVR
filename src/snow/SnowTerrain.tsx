@@ -11,6 +11,10 @@ import {
   TERRAIN_SIZE,
 } from './terrainMath'
 import { RideableDeformationField } from './RideableDeformationField'
+import {
+  createDeformationActivityState,
+  stepDeformationActivity,
+} from './deformationActivity'
 
 export interface BrushState {
   pos: THREE.Vector3
@@ -38,6 +42,7 @@ export function SnowTerrain({
 }: SnowTerrainProps) {
   const { gl } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
+  const activity = useRef(createDeformationActivityState())
 
   // 1024x1024 Quest-optimized deformation FBO buffer
   const deformationBuffer = useMemo(() => new SnowDeformationBuffer(1024), [])
@@ -105,18 +110,31 @@ export function SnowTerrain({
       affectsRide: false,
     }
 
-    // Update GPU ping-pong deformation FBO with direct ref read
-    deformationBuffer.update(
-      gl,
-      delta,
-      brush.pos,
-      brush.depth,
-      brush.berm,
-      brush.ice,
-      brush.wetness,
-      windDecay
-    )
-    deformationField.update(delta, brush, windDecay)
+    // The GPU deformation texture and the CPU collision mirror are two views of
+    // one simulation, so they must be suspended and resumed together. Gating
+    // only the GPU pass lets the CPU field keep decaying against a frozen
+    // texture: after a long idle you would see a trench that is no longer there
+    // to ride.
+    // `berm` is a multiplier on depth, not an independent input, so it is not
+    // part of this test: a nonzero berm with zero depth stamps nothing.
+    const hasBrushInput = brush.depth !== 0 || brush.ice !== 0 || brush.wetness !== 0
+    const activityStep = stepDeformationActivity(activity.current, delta, hasBrushInput)
+    activity.current = activityStep.state
+
+    if (activityStep.shouldSimulate) {
+      // Update GPU ping-pong deformation FBO with direct ref read
+      deformationBuffer.update(
+        gl,
+        delta,
+        brush.pos,
+        brush.depth,
+        brush.berm,
+        brush.ice,
+        brush.wetness,
+        windDecay
+      )
+      deformationField.update(delta, brush, windDecay)
+    }
 
     // Pass latest deformation texture to snow material
     snowMaterial.uniforms.uDeformationMap.value = deformationBuffer.texture

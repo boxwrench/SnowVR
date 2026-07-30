@@ -1,11 +1,6 @@
 import * as THREE from 'three'
 import { withPreservedRenderTarget } from '../rendering/renderTargetState'
 import { getReferenceFrameScale } from './simulationTiming'
-import {
-  createDeformationActivityState,
-  stepDeformationActivity,
-  type DeformationActivityState,
-} from './deformationActivity'
 
 // High-fidelity FBO ping-pong compute shader: 4-channel surface state (R=depth, G=berm/height, B=ice, A=wetness)
 const deformationSimFragmentShader = `
@@ -99,7 +94,6 @@ export class SnowDeformationBuffer {
   private targetA: THREE.WebGLRenderTarget
   private targetB: THREE.WebGLRenderTarget
   private isA: boolean = true
-  private activity: DeformationActivityState = createDeformationActivityState()
   private simScene: THREE.Scene
   private simCamera: THREE.OrthographicCamera
   private simMaterial: THREE.ShaderMaterial
@@ -157,13 +151,6 @@ export class SnowDeformationBuffer {
     brushWetness: number,
     windDecay: number
   ) {
-    // `berm` is a multiplier on depth, not an independent input, so it is not
-    // part of this test: a nonzero berm with zero depth stamps nothing.
-    const hasBrushInput = brushDepth !== 0 || brushIce !== 0 || brushWetness !== 0
-    const activityStep = stepDeformationActivity(this.activity, deltaTime, hasBrushInput)
-    this.activity = activityStep.state
-    if (!activityStep.shouldSimulate) return
-
     const readTarget = this.isA ? this.targetA : this.targetB
     const writeTarget = this.isA ? this.targetB : this.targetA
 
