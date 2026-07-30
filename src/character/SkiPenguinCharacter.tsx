@@ -32,7 +32,7 @@ const PENGUIN_MODEL_PATH = `${import.meta.env.BASE_URL}models/peng.glb`
 const PENGUIN_MODEL_HEIGHT = 1.0
 
 /** Rider height in board units. The deck is 2.5 long and 0.55 wide. */
-const PENGUIN_SCALE = 1.35
+const PENGUIN_SCALE = 1.55
 
 /** Binding pads top out at y = 0.20; the feet sit just into the straps. */
 const PENGUIN_FEET_Y = 0.18
@@ -42,12 +42,13 @@ const PENGUIN_Y = PENGUIN_FEET_Y + (PENGUIN_MODEL_HEIGHT / 2) * PENGUIN_SCALE
 /**
  * The model is authored facing +X: its toes extend to +X (feet span x
  * -0.079..0.194 while z stays symmetric at ±0.207) and the head's largest
- * protrusion is +X. Travel is +Z, so it is yawed a quarter turn.
+ * protrusion is +X. Travel is +Z.
  *
- * NOTE: derived from the mesh's vertex bounds, not from a rendered view. If the
- * rider ends up side-on or backwards, this is the single value to change.
+ * A yaw of 0 therefore leaves the rider facing across the board — the
+ * snowboard stance, confirmed on device. Use `Math.PI` to switch to the
+ * opposite (goofy) stance, or `-Math.PI / 2` to face down the hill.
  */
-const PENGUIN_YAW = -Math.PI / 2
+const PENGUIN_YAW = 0
 
 function create80sBoardTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
