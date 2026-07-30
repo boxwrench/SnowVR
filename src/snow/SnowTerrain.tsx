@@ -38,6 +38,9 @@ export function SnowTerrain({
 }: SnowTerrainProps) {
   const { gl } = useThree()
   const meshRef = useRef<THREE.Mesh>(null)
+  // TEMP DIAGNOSTIC — remove before commit
+  const diagAccum = useRef(0)
+  const diagFull = useRef(new Float32Array(1024 * 1024 * 4))
 
   // 1024x1024 Quest-optimized deformation FBO buffer
   const deformationBuffer = useMemo(() => new SnowDeformationBuffer(1024), [])
@@ -117,6 +120,59 @@ export function SnowTerrain({
       windDecay
     )
     deformationField.update(delta, brush, windDecay)
+
+    // TEMP DIAGNOSTIC — remove before commit.
+    // Logs each boundary of the carving pipeline once per second so the failing
+    // stage can be identified from adb logcat instead of guessed at.
+    diagAccum.current += delta
+    if (diagAccum.current > 3) {
+      diagAccum.current = 0
+      let gpuSample = 'readback-failed'
+      try {
+        // Scan the ENTIRE deformation FBO for its maximum. A single-texel probe
+        // cannot distinguish "the sim wrote nothing" from "the probe read the
+        // wrong texel", and the row origin convention is exactly the kind of
+        // thing that is easy to get backwards. Whole-buffer max has no such
+        // ambiguity: if the sim ran at all, some texel is nonzero.
+        const target = (deformationBuffer as unknown as {
+          targetA: THREE.WebGLRenderTarget
+          targetB: THREE.WebGLRenderTarget
+          isA: boolean
+        })
+        const active = target.isA ? target.targetA : target.targetB
+        gl.readRenderTargetPixels(active, 0, 0, 1024, 1024, diagFull.current)
+        const buf = diagFull.current
+        let maxR = 0
+        let maxG = 0
+        let argX = -1
+        let argY = -1
+        for (let i = 0; i < buf.length; i += 4) {
+          const r = buf[i]
+          if (r > maxR) {
+            maxR = r
+            const texel = i / 4
+            argX = texel % 1024
+            argY = Math.floor(texel / 1024)
+          }
+          if (buf[i + 1] > maxG) maxG = buf[i + 1]
+        }
+        gpuSample = `maxR ${maxR.toFixed(4)} maxG ${maxG.toFixed(4)} at ${argX},${argY}`
+      } catch (err) {
+        gpuSample = `err:${(err as Error).message}`
+      }
+
+      console.log(
+        '[snowdiag]',
+        'depth', brush.depth.toFixed(3),
+        'ice', brush.ice.toFixed(3),
+        'affects', brush.affectsRide,
+        'pos', brush.pos.x.toFixed(1), brush.pos.y.toFixed(1),
+        'r', brush.pos.z.toFixed(2),
+        '| cpuOffset', deformationField.getHeightOffset(brush.pos.x, brush.pos.y).toFixed(4),
+        '| gpuRGBA', gpuSample,
+        '| xrPresenting', gl.xr.isPresenting,
+      )
+    }
 
     // Pass latest deformation texture to snow material
     snowMaterial.uniforms.uDeformationMap.value = deformationBuffer.texture
