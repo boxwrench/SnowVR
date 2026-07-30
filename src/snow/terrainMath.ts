@@ -27,7 +27,7 @@ function gradientDot(
   return gradient[0] * fx + gradient[1] * fy + gradient[2] * fz
 }
 
-function gradientNoise3D(x: number, y: number, z: number): number {
+export function gradientNoise3D(x: number, y: number, z: number): number {
   const ix = Math.floor(x)
   const iy = Math.floor(y)
   const iz = Math.floor(z)
