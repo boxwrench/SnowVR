@@ -5,7 +5,7 @@ import {
   HORIZON_COLOR,
   SUN_COLOR,
   SUN_POSITION,
-} from './atmosphere'
+} from './atmosphereConfig'
 
 export function Atmosphere() {
   return (

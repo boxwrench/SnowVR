@@ -4,7 +4,7 @@ import { XR } from '@react-three/xr'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
-import { Atmosphere } from './environment/Atmosphere.tsx'
+import { Atmosphere } from './environment/Atmosphere'
 import { DistantMountains } from './environment/DistantMountains'
 import { FallingSnowParticles } from './environment/FallingSnowParticles'
 import { GPGPUSpellParticles } from './environment/GPGPUSpellParticles'

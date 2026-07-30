@@ -5,7 +5,7 @@ import {
   ROCK_COLOR,
   SUN_COLOR,
   getSunDirection,
-} from '../environment/atmosphere'
+} from '../environment/atmosphereConfig'
 
 const snowVertexShader = `
 #include <common>

@@ -9,7 +9,7 @@ import {
   MOUNTAIN_RING_RADIUS,
   SUN_POSITION,
   getSunDirection,
-} from './atmosphere'
+} from './atmosphereConfig'
 
 describe('shared atmosphere framing', () => {
   it('fogs the far terrain edge without hazing the rideable run', () => {
