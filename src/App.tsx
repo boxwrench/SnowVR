@@ -1,7 +1,7 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { XR } from '@react-three/xr'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
 import { Atmosphere } from './environment/Atmosphere'
@@ -11,6 +11,12 @@ import { GPGPUSpellParticles } from './environment/GPGPUSpellParticles'
 import { SlalomPoles } from './environment/SlalomPoles'
 import { SnowAudioController } from './environment/SnowAudioController'
 import { AVAILABLE_SPELLS, type SpellEffect } from './experiments/SpellManager'
+import { ContextLossGuard } from './rendering/ContextLossGuard'
+import {
+  createContextLossState,
+  markContextLost,
+  markContextRestored,
+} from './rendering/contextLoss'
 import { SnowTerrain, type BrushState } from './snow/SnowTerrain'
 import { RideableDeformationField } from './snow/RideableDeformationField'
 import { DevOverlay } from './ui/DevOverlay'
@@ -45,6 +51,7 @@ export function App() {
     isCasting: false,
   })
   const [entryError, setEntryError] = useState<string | null>(null)
+  const [contextLoss, setContextLoss] = useState(createContextLossState())
   const castingKeysRef = useRef(new Set<string>())
   const mouseCastingRef = useRef(false)
   const riderPositionRef = useRef(new THREE.Vector3())
@@ -62,71 +69,66 @@ export function App() {
     affectsRide: false,
   })
 
-  // Shader & Physics tuning state
-  const [windDecay, setWindDecay] = useState<number>(0.15)
-  const [glintScale, setGlintScale] = useState<number>(85.0)
-  const [glintIntensity, setGlintIntensity] = useState<number>(2.5)
+  // Dev controls state
+  const [windDecay, setWindDecay] = useState(0.15)
+  const [glintScale, setGlintScale] = useState(85.0)
+  const [glintIntensity, setGlintIntensity] = useState(2.5)
+
+  const handleContextLost = useCallback(() => {
+    setContextLoss(markContextLost)
+  }, [])
+  const handleContextRestored = useCallback(() => {
+    setContextLoss(markContextRestored)
+  }, [])
 
   useEffect(() => {
-    const syncDesktopCasting = () => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      if (e.code === 'Digit1') setActiveSpell(AVAILABLE_SPELLS[0])
+      if (e.code === 'Digit2') setActiveSpell(AVAILABLE_SPELLS[1])
+      if (e.code === 'Digit3') setActiveSpell(AVAILABLE_SPELLS[2])
+      if (e.code === 'Digit4') setActiveSpell(AVAILABLE_SPELLS[3])
+
+      if (e.code === 'KeyC') {
+        setIsOrbiting((prev) => !prev)
+      }
+
+      updateCastingKeys(castingKeysRef.current, e.code, true)
       setDesktopCasting(castingKeysRef.current.size > 0 || mouseCastingRef.current)
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const match = AVAILABLE_SPELLS.find((s) => s.key === e.key)
-      if (match) setActiveSpell(match)
-      updateCastingKeys(castingKeysRef.current, e.key, true)
-      syncDesktopCasting()
-    }
     const handleKeyUp = (e: KeyboardEvent) => {
-      updateCastingKeys(castingKeysRef.current, e.key, false)
-      syncDesktopCasting()
+      updateCastingKeys(castingKeysRef.current, e.code, false)
+      setDesktopCasting(castingKeysRef.current.size > 0 || mouseCastingRef.current)
     }
+
     const handleMouseDown = (e: MouseEvent) => {
-      if (!(e.target instanceof HTMLCanvasElement)) return
       if (e.button === 0) {
         mouseCastingRef.current = true
-        syncDesktopCasting()
-      }
-      if (e.button === 2) {
-        setIsOrbiting(true)
+        setDesktopCasting(true)
       }
     }
+
     const handleMouseUp = (e: MouseEvent) => {
       if (e.button === 0) {
         mouseCastingRef.current = false
-        syncDesktopCasting()
+        setDesktopCasting(castingKeysRef.current.size > 0)
       }
-      if (e.button === 2) setIsOrbiting(false)
-    }
-    const handleContextMenu = (e: MouseEvent) => {
-      if (e.target instanceof HTMLCanvasElement) e.preventDefault()
-    }
-    const resetDesktopInput = () => {
-      castingKeysRef.current.clear()
-      mouseCastingRef.current = false
-      setDesktopCasting(false)
-      setIsOrbiting(false)
-    }
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') resetDesktopInput()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('mousedown', handleMouseDown)
     window.addEventListener('mouseup', handleMouseUp)
-    window.addEventListener('contextmenu', handleContextMenu)
-    window.addEventListener('blur', resetDesktopInput)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mouseup', handleMouseUp)
-      window.removeEventListener('contextmenu', handleContextMenu)
-      window.removeEventListener('blur', resetDesktopInput)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
@@ -158,6 +160,11 @@ export function App() {
           <span>🥽</span> Enter VR
         </button>
         {entryError && <p style={{ color: '#ef4444', fontSize: '0.8rem' }}>{entryError}</p>}
+        {contextLoss.status === 'lost' && (
+          <p style={{ color: '#fbbf24', fontSize: '0.8rem' }}>
+            Rendering was interrupted. It will resume automatically.
+          </p>
+        )}
       </header>
 
       <DevOverlay
@@ -181,12 +188,17 @@ export function App() {
         shadows={false}
       >
         <XR store={xrStore}>
+          <ContextLossGuard
+            onLost={handleContextLost}
+            onRestored={handleContextRestored}
+          />
           <Atmosphere />
           <DistantMountains />
           <SlalomPoles />
           <FallingSnowParticles count={1200} />
 
           <SnowTerrain
+            key={`terrain-${contextLoss.generation}`}
             brushRef={brushRef}
             windDecay={windDecay}
             glintScale={glintScale}
@@ -219,6 +231,7 @@ export function App() {
           />
 
           <GPGPUSpellParticles
+            key={`spell-particles-${contextLoss.generation}`}
             activeSpell={activeSpell}
             brushRef={brushRef}
             isEmitting={isCasting}
