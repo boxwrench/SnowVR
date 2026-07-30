@@ -245,12 +245,19 @@ void main() {
   // Spherical Harmonics (SH) Sky Ambient with Snow Bounce
   vec3 skyAmbient = mix(uSkyColor * 0.5, vec3(0.85, 0.92, 0.98), max(0.0, -N.y) * 0.4);
 
+  // ─── CAVITY OCCLUSION ───
+  // Depression occludes the sky hemisphere. Without this, trenches and melt
+  // holes are lit as brightly as flat snow and read as paint, not depth.
+  // Runs at all quality tiers: two instructions, and the shape it gives the
+  // carved surface is exactly what the peripheral tiers cannot afford to lose.
+  float cavityAo = 1.0 - clamp(vDeformation.r * 0.85, 0.0, 0.7);
+
   // ─── FINAL COMPOSITE ───
-  vec3 diffuseLighting = uSunColor * wrappedDiffuse * surfaceBaseColor;
+  vec3 diffuseLighting = uSunColor * wrappedDiffuse * surfaceBaseColor * cavityAo;
   vec3 glintLighting = vec3(1.0, 0.98, 0.9) * grazingGlint * (1.0 - wetnessFactor);
   vec3 specLighting = uSunColor * specular;
 
-  vec3 finalColor = skyAmbient + diffuseLighting + sssLighting + glintLighting + specLighting;
+  vec3 finalColor = skyAmbient * cavityAo + diffuseLighting + sssLighting + glintLighting + specLighting;
 
   gl_FragColor = vec4(finalColor, 1.0);
 
