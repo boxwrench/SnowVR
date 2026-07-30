@@ -1,6 +1,16 @@
 import * as THREE from 'three'
+import {
+  DEEP_ICE_COLOR,
+  HORIZON_COLOR,
+  ROCK_COLOR,
+  SUN_COLOR,
+  getSunDirection,
+} from '../environment/atmosphere'
 
 const snowVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
 uniform sampler2D uDeformationMap;
 uniform sampler2D uTerrainHeightMap;
 uniform float uDisplacementScale;
@@ -73,13 +83,20 @@ void main() {
   // Slope calculation for triplanar rock shading on steep faces
   vSlope = 1.0 - max(0.0, dot(vWorldNormal, vec3(0.0, 1.0, 0.0)));
   
-  vec4 clipPos = projectionMatrix * viewMatrix * vec4(vWorldPosition, 1.0);
+  // fog_vertex reads mvPosition from scope, so name it explicitly.
+  vec4 mvPosition = viewMatrix * vec4(vWorldPosition, 1.0);
+  vec4 clipPos = projectionMatrix * mvPosition;
   vClipPos = clipPos;
   gl_Position = clipPos;
+
+  #include <fog_vertex>
 }
 `
 
 const snowFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
 uniform vec3 uSunDirection;
 uniform vec3 uSunColor;
 uniform vec3 uSkyColor;
@@ -91,7 +108,6 @@ uniform float uGlintIntensity;
 // Foveated rendering uniforms
 uniform vec2 uFoveaCenter;   // NDC screen focus point (0.5, 0.5 = center)
 uniform float uFoveaRadius;  // Radius of full-quality foveal region (0.0–1.0)
-uniform vec2 uResolution;    // Viewport resolution in pixels
 
 varying vec2 vUv;
 varying vec3 vWorldPosition;
@@ -236,12 +252,14 @@ void main() {
 
   vec3 finalColor = skyAmbient + diffuseLighting + sssLighting + glintLighting + specLighting;
 
-  // Distance Fog blending (runs at all quality tiers)
-  float dist = length(cameraPosition - vWorldPosition);
-  float fogFactor = smoothstep(40.0, 110.0, dist);
-  finalColor = mix(finalColor, uSkyColor, fogFactor * 0.75);
-
   gl_FragColor = vec4(finalColor, 1.0);
+
+  // Match the built-in material output order exactly: tone map, encode, then
+  // fog in output space. Scene fog replaces the previous bespoke blend so the
+  // terrain hazes identically to the poles, backdrop, and falling snow.
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  #include <fog_fragment>
 }
 `
 
@@ -250,27 +268,38 @@ export function createSnowMaterial(
   terrainGridSize: number,
   terrainWorldSize: number,
 ): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
+  const material = new THREE.ShaderMaterial({
     vertexShader: snowVertexShader,
     fragmentShader: snowFragmentShader,
-    uniforms: {
-      uDeformationMap: { value: null },
-      uTerrainHeightMap: { value: terrainHeightMap },
-      uDisplacementScale: { value: 1.0 },
-      uTerrainGridSize: { value: terrainGridSize },
-      uTerrainWorldSize: { value: terrainWorldSize },
-      uSunDirection: { value: new THREE.Vector3(3, 5, 4).normalize() },
-      uSunColor: { value: new THREE.Color('#fff0d6') },
-      uSkyColor: { value: new THREE.Color('#2b5c7e') },
-      uDeepIceColor: { value: new THREE.Color('#024773') },
-      uRockColor: { value: new THREE.Color('#2d3138') },
-      uGlintScale: { value: 85.0 },
-      uGlintIntensity: { value: 2.5 },
-      // Foveated rendering
-      uFoveaCenter: { value: new THREE.Vector2(0.5, 0.5) },
-      uFoveaRadius: { value: 0.28 },
-      uResolution: { value: new THREE.Vector2(1920, 1080) },
-    },
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {
+        uDeformationMap: { value: null },
+        uTerrainHeightMap: { value: null },
+        uDisplacementScale: { value: 1.0 },
+        uTerrainGridSize: { value: terrainGridSize },
+        uTerrainWorldSize: { value: terrainWorldSize },
+        uSunDirection: { value: getSunDirection(new THREE.Vector3()) },
+        uSunColor: { value: new THREE.Color(SUN_COLOR) },
+        uSkyColor: { value: new THREE.Color(HORIZON_COLOR) },
+        uDeepIceColor: { value: new THREE.Color(DEEP_ICE_COLOR) },
+        uRockColor: { value: new THREE.Color(ROCK_COLOR) },
+        uGlintScale: { value: 85.0 },
+        uGlintIntensity: { value: 2.5 },
+        // Foveated rendering
+        uFoveaCenter: { value: new THREE.Vector2(0.5, 0.5) },
+        uFoveaRadius: { value: 0.28 },
+      },
+    ]),
+    // Opts the terrain into scene fog. Without this the USE_FOG define is
+    // never set and the fog chunks compile to nothing.
+    fog: true,
     side: THREE.DoubleSide,
   })
+
+  // UniformsUtils.merge deep-clones uniform values, so the caller's texture is
+  // attached after the merge to guarantee identity.
+  material.uniforms.uTerrainHeightMap.value = terrainHeightMap
+
+  return material
 }
