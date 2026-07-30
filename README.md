@@ -1,16 +1,10 @@
+![SnowVR Banner](docs/snowvr-banner.png)
+
 # SnowVR ❄️🏂
 
 **SnowVR** is an AI-assisted WebXR procedural snow rendering and downhill interaction sandbox built as a hands-on learning tool. It explores real-time GPU-driven snow deformation, WebXR performance optimization, and controller-first VR interactions targeting 72 FPS on Meta Quest 3.
 
 **🌐 Live Demo:** [`https://boxwrench.github.io/SnowVR/`](https://boxwrench.github.io/SnowVR/)
-
----
-
-## 💡 Inspiration & Acknowledgments
-
-SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://github.com/Noniv) and their project [**`Noniv/snowflow_demo`**](https://github.com/Noniv/snowflow_demo) (released under the [MIT License](https://github.com/Noniv/snowflow_demo/blob/main/LICENSE)). 
-
-`snowflow_demo` demonstrated state-of-the-art procedural WebGPU snow rendering, multi-channel toroidal FBO deformation, anisotropic slump diffusion, and elemental landscape manipulation without pre-authored texture or mesh assets. SnowVR adapts these concepts into a 3rd-person WebXR VR experience tailored for Meta Quest 3 using Three.js and React Three Fiber.
 
 ---
 
@@ -96,6 +90,14 @@ Physical Meta Quest setup and the native-device test gates are documented in
 * **Three.js 0.165.0** & **React Three Fiber 9.0**
 * **`@react-three/xr` 6.6.30** & **`@react-three/drei`**
 * **Vite 6.0**
+
+---
+
+## 💡 Inspiration & Acknowledgments
+
+SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://github.com/Noniv) and their project [**`Noniv/snowflow_demo`**](https://github.com/Noniv/snowflow_demo) (released under the [MIT License](https://github.com/Noniv/snowflow_demo/blob/main/LICENSE)). 
+
+`snowflow_demo` demonstrated state-of-the-art procedural WebGPU snow rendering, multi-channel toroidal FBO deformation, anisotropic slump diffusion, and elemental landscape manipulation without pre-authored texture or mesh assets. SnowVR adapts these concepts into a 3rd-person WebXR VR experience tailored for Meta Quest 3 using Three.js and React Three Fiber.
 
 ---
 
