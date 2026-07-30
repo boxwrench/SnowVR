@@ -13,6 +13,7 @@ const snowVertexShader = `
 
 uniform sampler2D uDeformationMap;
 uniform sampler2D uTerrainHeightMap;
+uniform sampler2D uTerrainGradientMap;
 uniform float uDisplacementScale;
 uniform float uTerrainGridSize;
 uniform float uTerrainWorldSize;
@@ -55,29 +56,34 @@ void main() {
   
   vWorldPosition = (modelMatrix * vec4(displacedPosition, 1.0)).xyz;
   
-  // Sample adjacent grid vertices. Plane UV V runs opposite world Z after rotation.
+  // Plane UV V runs opposite world Z after rotation.
   float uvStep = 1.0 / (uTerrainGridSize - 1.0);
   float worldStep = uTerrainWorldSize / (uTerrainGridSize - 1.0);
   vec2 uvNegX = uv - vec2(uvStep, 0.0);
   vec2 uvPosX = uv + vec2(uvStep, 0.0);
   vec2 uvNegZ = uv + vec2(0.0, uvStep);
   vec2 uvPosZ = uv - vec2(0.0, uvStep);
-  float hL = sampleTerrainHeight(uvNegX);
-  float hR = sampleTerrainHeight(uvPosX);
-  float hD = sampleTerrainHeight(uvNegZ);
-  float hU = sampleTerrainHeight(uvPosZ);
+
+  // Base height differences arrive precomputed; only the deformation half of
+  // the central difference is sampled per frame. Differences add linearly, so
+  // this is identical to sampling all four base neighbours.
+  vec2 baseGradient = texture2D(uTerrainGradientMap, terrainTexelUv(uv)).rg;
 
   vec4 deformL = texture2D(uDeformationMap, clamp(uvNegX, 0.0, 1.0));
   vec4 deformR = texture2D(uDeformationMap, clamp(uvPosX, 0.0, 1.0));
   vec4 deformD = texture2D(uDeformationMap, clamp(uvNegZ, 0.0, 1.0));
   vec4 deformU = texture2D(uDeformationMap, clamp(uvPosZ, 0.0, 1.0));
-  
-  hL += sampleDeformationHeight(deformL) * uDisplacementScale;
-  hR += sampleDeformationHeight(deformR) * uDisplacementScale;
-  hD += sampleDeformationHeight(deformD) * uDisplacementScale;
-  hU += sampleDeformationHeight(deformU) * uDisplacementScale;
-  
-  vec3 normalCalc = normalize(vec3(hL - hR, 2.0 * worldStep, hD - hU));
+
+  float deformGradX = (sampleDeformationHeight(deformL) - sampleDeformationHeight(deformR))
+    * uDisplacementScale;
+  float deformGradZ = (sampleDeformationHeight(deformD) - sampleDeformationHeight(deformU))
+    * uDisplacementScale;
+
+  vec3 normalCalc = normalize(vec3(
+    baseGradient.x + deformGradX,
+    2.0 * worldStep,
+    baseGradient.y + deformGradZ
+  ));
   vWorldNormal = normalCalc;
   
   // Slope calculation for triplanar rock shading on steep faces
@@ -272,6 +278,7 @@ void main() {
 
 export function createSnowMaterial(
   terrainHeightMap: THREE.DataTexture,
+  terrainGradientMap: THREE.DataTexture,
   terrainGridSize: number,
   terrainWorldSize: number,
 ): THREE.ShaderMaterial {
@@ -283,6 +290,7 @@ export function createSnowMaterial(
       {
         uDeformationMap: { value: null },
         uTerrainHeightMap: { value: null },
+        uTerrainGradientMap: { value: null },
         uDisplacementScale: { value: 1.0 },
         uTerrainGridSize: { value: terrainGridSize },
         uTerrainWorldSize: { value: terrainWorldSize },
@@ -307,6 +315,7 @@ export function createSnowMaterial(
   // UniformsUtils.merge deep-clones uniform values, so the caller's texture is
   // attached after the merge to guarantee identity.
   material.uniforms.uTerrainHeightMap.value = terrainHeightMap
+  material.uniforms.uTerrainGradientMap.value = terrainGradientMap
 
   return material
 }

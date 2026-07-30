@@ -10,7 +10,14 @@ function buildMaterial(): THREE.ShaderMaterial {
     THREE.RedFormat,
     THREE.FloatType,
   )
-  return createSnowMaterial(heightMap, 3, 12)
+  const gradientMap = new THREE.DataTexture(
+    new Float32Array(36),
+    3,
+    3,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  )
+  return createSnowMaterial(heightMap, gradientMap, 3, 12)
 }
 
 describe('snow material output pipeline', () => {
@@ -53,8 +60,16 @@ describe('snow material output pipeline', () => {
       THREE.RedFormat,
       THREE.FloatType,
     )
-    const material = createSnowMaterial(heightMap, 3, 12)
+    const gradientMap = new THREE.DataTexture(
+      new Float32Array(36),
+      3,
+      3,
+      THREE.RGBAFormat,
+      THREE.FloatType,
+    )
+    const material = createSnowMaterial(heightMap, gradientMap, 3, 12)
     expect(material.uniforms.uTerrainHeightMap.value).toBe(heightMap)
+    expect(material.uniforms.uTerrainGradientMap.value).toBe(gradientMap)
     expect(material.uniforms.uTerrainGridSize.value).toBe(3)
     expect(material.uniforms.uTerrainWorldSize.value).toBe(12)
   })

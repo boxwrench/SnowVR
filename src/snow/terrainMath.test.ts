@@ -5,6 +5,7 @@ import {
   TERRAIN_SEGMENTS,
   TERRAIN_SIZE,
   createTerrainHeightData,
+  createTerrainGradientData,
   evaluateTerrainProfile,
   getTerrainHeight,
   getTerrainNormal,
@@ -50,5 +51,51 @@ describe('shared terrain heightfield', () => {
     const normal = getTerrainNormal(8, -12)
     expect(Math.hypot(normal.nx, normal.ny, normal.nz)).toBeCloseTo(1, 6)
     expect(normal.ny).toBeGreaterThan(0)
+  })
+})
+
+describe('precomputed base terrain gradients', () => {
+  it('stores four floats per grid vertex', () => {
+    expect(createTerrainGradientData()).toHaveLength(
+      TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE * 4,
+    )
+  })
+
+  it('matches the central difference the shader would compute', () => {
+    const data = createTerrainGradientData()
+    const column = 100
+    const row = 80
+    const index = (row * TERRAIN_GRID_SIZE + column) * 4
+
+    const heightAt = (c: number, r: number) =>
+      TERRAIN_HEIGHT_DATA[r * TERRAIN_GRID_SIZE + c]
+
+    expect(data[index]).toBeCloseTo(
+      heightAt(column - 1, row) - heightAt(column + 1, row),
+    )
+    expect(data[index + 1]).toBeCloseTo(
+      heightAt(column, row + 1) - heightAt(column, row - 1),
+    )
+  })
+
+  it('clamps at the edges exactly as the shader clamps its uv', () => {
+    const data = createTerrainGradientData()
+    const heightAt = (c: number, r: number) =>
+      TERRAIN_HEIGHT_DATA[r * TERRAIN_GRID_SIZE + c]
+
+    // Column 0: the negative-x neighbour clamps back to column 0 itself.
+    expect(data[0]).toBeCloseTo(heightAt(0, 0) - heightAt(1, 0))
+
+    const lastColumn = TERRAIN_GRID_SIZE - 1
+    const lastIndex = lastColumn * 4
+    expect(data[lastIndex]).toBeCloseTo(
+      heightAt(lastColumn - 1, 0) - heightAt(lastColumn, 0),
+    )
+  })
+
+  it('is deterministic', () => {
+    expect(Array.from(createTerrainGradientData().slice(0, 64))).toEqual(
+      Array.from(createTerrainGradientData().slice(0, 64)),
+    )
   })
 })
