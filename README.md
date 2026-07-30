@@ -61,7 +61,9 @@ SnowVR was heavily inspired by the exceptional work of [**Noniv**](https://githu
 - **3rd-Person VR Chase Rig:** Trailing horizon-stable camera tracking (`<XROrigin>`) following rider position and heading smoothly while preserving free 360° VR head-look.
 - **Adaptive GPGPU Particles:** GPU-driven ping-pong particle system (`GPGPUParticleSystem.ts`) budgeted to 4,096 active particles with automatic idle pause during normal riding.
 - **Zero-Asset Web Audio:** Procedural Web Audio synthesis (`SnowAudioController.tsx`) generating wind hiss and board scrape audio based on velocity.
+- **Unified Atmosphere:** Sky, fog, sun, and backdrop colours resolve from a single `atmosphereConfig.ts` module. The snow shader runs through the standard Three.js tone-mapping, colour-space, and fog chunks so the terrain matches every other material in the scene.
 - **Instanced Slalom Gates:** Single-draw-call instanced slalom poles (`SlalomPoles.tsx`) every 18m for immediate visual scale and speed anchors.
+- **Camera-Following Snowfall:** 1,200 points wrapped toroidally around the viewer, so snowfall density is constant across the whole run.
 - **Performance Monitoring:** Optional real-time FPS, frame time (ms), and native FFR diagnostics (`DevOverlay.tsx`). Enable the head-following headset panel only when profiling with `?dev=1`.
 
 ---
